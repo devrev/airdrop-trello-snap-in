@@ -1,0 +1,41 @@
+{
+  "execution_metadata": {
+    "function_name": "extraction_external_sync_unit_check",
+    "devrev_endpoint": "http://localhost:8003"
+  },
+  "context": {
+    "secrets": {
+      "service_account_token": "test-token"
+    },
+    "snap_in_version_id": "test-version-id",
+    "snap_in_id": "test-snap-in-id"
+  },
+  "payload": {
+    "event_type": "EXTRACTION_EXTERNAL_SYNC_UNITS_START",
+    "connection_data": {
+      "org_id": "test-org-id",
+      "org_name": "test-org-name",
+      "key": "key=test-api-key&token=test-token",
+      "key_type": "test-key-type"
+    },
+    "event_context": {
+      "callback_url": "http://localhost:8002/callback",
+      "dev_org": "test-dev-org",
+      "dev_org_id": "test-dev-org-id",
+      "dev_user": "test-dev-user",
+      "dev_user_id": "test-dev-user-id",
+      "external_sync_unit": "test-external-sync-unit",
+      "external_sync_unit_id": "test-external-sync-unit-id",
+      "external_sync_unit_name": "test-external-sync-unit-name",
+      "external_system": "test-external-system",
+      "external_system_type": "test-external-system-type",
+      "import_slug": "test-import-slug",
+      "mode": "INITIAL",
+      "request_id": "test-request-id",
+      "snap_in_slug": "test-snap-in-slug",
+      "snap_in_version_id": "test-version-id",
+      "uuid": "test-uuid",
+      "worker_data_url": "test-worker-data-url"
+    }
+  }
+}

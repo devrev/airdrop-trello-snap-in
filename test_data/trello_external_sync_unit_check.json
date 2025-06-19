@@ -1,0 +1,24 @@
+{
+    "execution_metadata": {
+        "function_name": "push_boards_as_sync_units",
+        "devrev_endpoint": "http://localhost:8003"
+    },
+    "payload": {
+        "event_type": "EXTRACTION_EXTERNAL_SYNC_UNITS_START",
+        "event_context": {
+            "callback_url": "http://localhost:8002/callback",
+            "dev_org": "test-dev-org",
+            "sync_unit_id": "test-sync-unit",
+            "worker_data_url": "http://localhost:8003/external-worker"
+        },
+        "connection_data": {
+            "org_id": "b6be2ceb-a549-4802-9685-85d0a1858985",
+            "key": "key=test-key&token=test-token"
+        }
+    },
+    "context": {
+        "secrets": {
+            "service_account_token": "test-token"
+        }
+    }
+}

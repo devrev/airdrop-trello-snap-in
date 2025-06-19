@@ -1,0 +1,46 @@
+version: "2"
+
+name: Trello
+description: Import users, boards, cards, and attachments from Trello.
+
+service_account:
+  display_name: Trello Bot
+
+functions:
+  - name: extraction
+    description: Extraction function
+  - name: loading
+    description: Loading function
+
+keyring_types:
+  - id: trello-connection
+    name: "Trello Connection"
+    description: "Trello Connection through API key and token."
+    kind: "Secret"
+    external_system_name: "Trello"
+    secret_config:
+      secret_transform: '"key=" + .APIKey + "&token=" + .APIToken'
+      fields:
+        - id: APIKey
+          name: API key
+          description: Trello API key
+        - id: APIToken
+          name: API token
+          description: Trello API token
+      token_verification:
+        url: https://api.trello.com/1/members/me?[API_KEY]
+        method: GET
+    organization_data:
+      type: "config"
+      url: https://api.trello.com/1/members/me/organizations?[API_KEY]
+      method: "GET"
+      response_jq: ".[] | {id:.id, name: .displayName}"
+
+imports:
+  - slug: trello-snapin-devrev
+    display_name: Trello
+    description: Trello
+    extractor_function: extraction
+    loader_function: loading
+    allowed_connection_types:
+      - trello-connection

@@ -1,0 +1,163 @@
+{% include "devrev-snapin-template.plain" %}
+
+#  The Trello Snap-In
+
+***Definitions:***
+
+- The Snap-In interacts with Trello API (The API).
+
+- The Organization is Trello organization.
+
+- The Data Model of The API is as follows:
+    ```
+    The Data Model
+    ├─ The List of Users
+    │  └─ The User
+    │     └─ The Permissions
+    └─ The List of Boards
+       └─ The Board
+          └─ The List of Cards
+             └─ The Card
+                ├─ The List of Checklists
+                │  └─ The Checklist
+                ├─ The List of Comments
+                │  └─ The Comment
+                └─ The List of Attachments
+                   └─ The Attachment
+    ```
+
+- The Fetched Boards are The List of Boards that are fetched from The API.
+
+- The Fetched Users are The List of Users that are fetched from The API.
+
+- The Fetched Cards are The List of Cards that are fetched from The API.
+
+
+***Non-Functional Requirements:***
+
+- The API key and token are provided in the "key" field of the "connection_data" dictionary which is part of "payload" dictionary. The "key" field has the following internal format: "key=<api_key>&token=<token>"
+
+
+***Test Requirements:***
+
+- Credentials should be read from the environment. The following environment variables are required: `TRELLO_API_KEY` (Trello API Key), `TRELLO_TOKEN` (Trello OAuth Token), `TRELLO_ORGANIZATION_ID` (The Organization ID).
+
+
+## The Boilerplate Code
+
+***Non-Functional Requirements:***
+
+- The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API.
+
+
+***Functional Requirements:***
+
+- Implement The Function that provides a check if authentication with The API works.
+
+
+## Data Fetching
+
+***Non-Functional Requirements:***
+
+- The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API.
+
+
+***Functional Requirements:***
+
+- Implement The Function that uses The API to fetch The List of Boards (The Fetched Boards).
+
+  ***Acceptance Tests:***
+
+  - When using The Test Trello Credentials a board with the name "SaaS connectors" must be in the result of The Function.
+
+- Implement The Function that uses The API to fetch The List of Users of The Organization (The Fetched Users). The Organization ID is provided in the "org_id" field of the "connection_data" dictionary which is part of "payload" dictionary.
+
+- Implement The Function that uses The API to fetch The List of Cards for The Board (The Fetched Cards). The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
+
+
+## Generate 'external_domain_metadata.json'
+
+***Definitions:***
+
+- The structure of The External Domain Metadata JSON object is specified by the JSON schema defined in the resource [external_domain_metadata_schema.json](external_domain_metadata_schema.json).
+  - Please note that all refers_to keys in reference and typed_reference fields must use the format "#record:<record_type_key>", where <record_type_key> matches a key in the top-level record_types. This ensures references are unambiguous and valid. Use {} as the value to refer by default identifier (id), or specify { "by_field": "field_name" } to use a custom key.
+
+***Non-Functional Requirements:***
+
+- Store The External Domain Metadata JSON object as a separate source file.
+
+***Functional Requirements:***
+
+- Implement The Function that generates and returns The External Domain Metadata JSON object. The record types that should be included in the The External Domain Metadata are The List of Cards ('cards') and The List of Users ('users').
+
+  ***Acceptance Tests:***
+
+  - Validate generated The External Domain Metadata JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli validate-metadata":
+    - This command reads JSON object from stdin.
+    - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
+    - For the test to be successful The Chef CLI must return an empty output.
+    - The test should always fail if The Chef CLI is not available.
+
+
+## Generate 'initial_domain_mapping.json'
+
+***Definitions:***
+
+- The structure of The Initial Domain Mapping JSON object is specified by the JSON schema defined in the resource [initial_mappings_schema.yaml](initial_mappings_schema.yaml).
+  - For a complete list of supported DevRev object types and their fields, see resource [Supported DevRev object types for Airdrop](docs/supported-object-types.md).
+
+***Non-Functional Requirements:***
+
+- Store The Initial Domain Mapping JSON object as a separate source file.
+
+
+***Functional Requirements:***
+
+- Implement The Function that generates and returns The Initial Domain Mapping JSON object.
+
+  ***Acceptance Tests:***
+
+  - Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <path to The External Domain Metadata JSON file>":
+    - The Chef CLI reads The Initial Domain Mapping JSON object from stdin.
+    - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
+    - For the test to be successful The Chef CLI must return an empty output.
+    - The test should always fail if The Chef CLI is not available.
+
+
+## Pushing data to DevRev servers
+
+***Non-Functional Requirements:***
+
+- All operations accessing external services or data providers must be implemented in worker threads.
+
+***Functional Requirements:***
+
+- Use The Initial Domain Mapping JSON object for initialDomainMapping parameter when spawning a new worker.
+
+- Implement The Function that pushes The Fetched Boards as external sync units (The Push Boards Function).
+
+  ***Acceptance Tests:***
+  
+  - Test The Push Boards Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
+
+- The Push Boards Function should fetch the cards count for each board and push it as part of the external sync units.
+
+- Implement The Function that implements the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. (The Push Metadata Function).
+
+- Implement The Function that pushes The Fetched Users to the repository designated for 'users' data (The Push Users Function).
+
+- Implement The Function that pushes The Fetched Cards to the repository designated for 'cards' data (The Push Cards Function).
+
+- Implement The Function that implements attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md) (The Attachment Extraction Function)
+
+- Implement The Function named "extraction" that calls:
+  - The Push Boards Function if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START".
+  - The Push Metadata Function if "event_type" equals "EXTRACTION_METADATA_START".
+  - The Push Users Function and The Push Cards Function if "event_type" equals "EXTRACTION_DATA_START" (but make sure that a single "EXTRACTION_DATA_DONE" event is emitted).
+  - The Attachment Extraction Function if "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE".
+
+  ***Acceptance Tests:***
+
+  - Test The Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
+
+  - Test The Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server does not receive from DevRev any event with "event_type" that equals "EXTRACTION_DATA_ERROR". The test must not send event directly to The Callback Server.

@@ -1,0 +1,96 @@
+{
+    "1.1": {
+        "functional_requirement": "- Implement The Function that only checks if The Function can be invoked.",
+        "folder_name": "conformance_tests/function_invocation_validator"
+    },
+    "1.2": {
+        "functional_requirement": "- Implement The Function that only checks if the data extraction workflow can be invoked.",
+        "folder_name": "conformance_tests/workflow_invocation_checker",
+        "acceptance_tests": [
+            "- Test the data extraction workflow invocation using the resource `[resource]extraction_health_check.json`."
+        ]
+    },
+    "1.3": {
+        "functional_requirement": "- Implement The Function that checks if pushing data works. The URL where data is to be pushed is provided in the \"callback_url\" field of the \"event_context\" dictionary which is part of \"payload\" dictionary.",
+        "folder_name": "conformance_tests/data_push_validator"
+    },
+    "1.4": {
+        "functional_requirement": "- Implement The Function that provides a test of the 'external sync units' part of the extraction workflow. The name of The Function must be 'extraction_external_sync_unit_check'.",
+        "folder_name": "conformance_tests/extraction_sync_unit_tester",
+        "acceptance_tests": [
+            "- Test The Function using the resource `[resource]external_sync_unit_check.json`. Test is successful if The Callback Server receives from DevRev an event with \"event_type\" that equals \"EXTRACTION_EXTERNAL_SYNC_UNITS_DONE\". The test must not send the event directly to The Callback Server."
+        ]
+    },
+    "1.5": {
+        "functional_requirement": "- Implement The Function that provides a test of the 'data extraction' part of the extraction workflow as described in the resource `[resource]data-extraction.md`. Only check if data extraction can be triggered and that it successfully completes. Disregard all other details. The name of The Function must be 'data_extraction_check'.",
+        "folder_name": "conformance_tests/data_extraction_validator",
+        "acceptance_tests": [
+            "- Test The Function using the resource `[resource]data_extraction_check.json`. Test is successful if The Callback Server receives from DevRev an event with \"event_type\" that equals \"EXTRACTION_DATA_DONE\". The test must not send the event directly to The Callback Server."
+        ]
+    },
+    "2.1.1": {
+        "functional_requirement": "- Implement The Function that provides a check if authentication with The API works.",
+        "folder_name": "conformance_tests/api_authentication_validator"
+    },
+    "2.2.1": {
+        "functional_requirement": "- Implement The Function that uses The API to fetch The List of Boards (The Fetched Boards).",
+        "folder_name": "conformance_tests/board_fetch_validator",
+        "acceptance_tests": [
+            "- When using The Test Trello Credentials a board with the name \"SaaS connectors\" must be in the result of The Function."
+        ]
+    },
+    "2.2.2": {
+        "functional_requirement": "- Implement The Function that uses The API to fetch The List of Users of The Organization (The Fetched Users). The Organization ID is provided in the \"org_id\" field of the \"connection_data\" dictionary which is part of \"payload\" dictionary.",
+        "folder_name": "conformance_tests/user_fetch_validator"
+    },
+    "2.2.3": {
+        "functional_requirement": "- Implement The Function that uses The API to fetch The List of Cards for The Board (The Fetched Cards). The Board ID is provided in the \"external_sync_unit_id\" field of the \"event_context\" dictionary which is part of \"payload\" dictionary.",
+        "folder_name": "conformance_tests/card_fetch_validator"
+    },
+    "2.3.1": {
+        "functional_requirement": "- Implement The Function that generates and returns The External Domain Metadata JSON object. The record types that should be included in the The External Domain Metadata are The List of Cards ('cards') and The List of Users ('users').",
+        "folder_name": "conformance_tests/domain_metadata_builder",
+        "acceptance_tests": [
+            "- Validate generated The External Domain Metadata JSON object with the chef-cli tool (The Chef CLI) using the command \"chef-cli validate-metadata\":\n  - This command reads JSON object from stdin.\n  - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.\n  - For the test to be successful The Chef CLI must return an empty output.\n  - The test should always fail if The Chef CLI is not available."
+        ]
+    },
+    "2.4.1": {
+        "functional_requirement": "- Use `[resource]initial_domain_mapping.json` for initialDomainMapping parameter when spawning a new worker.",
+        "folder_name": "conformance_tests/worker_domain_initializer"
+    },
+    "2.4.2": {
+        "functional_requirement": "- Implement The Function that pushes The Fetched Boards as external sync units (The Push Boards Function).",
+        "folder_name": "conformance_tests/board_push_processor",
+        "acceptance_tests": [
+            "- Test The Push Boards Function using the resource `[resource]trello_external_sync_unit_check.json`. For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with \"event_type\" that equals \"EXTRACTION_EXTERNAL_SYNC_UNITS_DONE\". The test must not send the event directly to The Callback Server."
+        ]
+    },
+    "2.4.3": {
+        "functional_requirement": "- The Push Boards Function should fetch the cards count for each board and push it as part of the external sync units.",
+        "folder_name": "conformance_tests/board_cards_count_pusher"
+    },
+    "2.4.4": {
+        "functional_requirement": "- Implement The Function that implements the \"metadata extraction\" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. (The Push Metadata Function).",
+        "folder_name": "conformance_tests/external_domain_metadata_pusher"
+    },
+    "2.4.5": {
+        "functional_requirement": "- Implement The Function that pushes The Fetched Users to the repository designated for 'users' data (The Push Users Function).",
+        "folder_name": "conformance_tests/user_push_processor"
+    },
+    "2.4.6": {
+        "functional_requirement": "- Implement The Function that pushes The Fetched Cards to the repository designated for 'cards' data (The Push Cards Function).",
+        "folder_name": "conformance_tests/card_push_processor"
+    },
+    "2.4.7": {
+        "functional_requirement": "- Implement The Function that implements attachment extraction as described in the resource `[resource]attachments-extraction.md` (The Attachment Extraction Function)",
+        "folder_name": "conformance_tests/attachment_extraction_processor"
+    },
+    "2.4.8": {
+        "functional_requirement": "- Implement The Function named \"extraction\" that calls:\n  - The Push Boards Function if \"event_type\" equals \"EXTRACTION_EXTERNAL_SYNC_UNITS_START\".\n  - The Push Metadata Function if \"event_type\" equals \"EXTRACTION_METADATA_START\".\n  - The Push Users Function and The Push Cards Function if \"event_type\" equals \"EXTRACTION_DATA_START\".\n  - The Attachment Extraction Function if \"event_type\" equals \"EXTRACTION_ATTACHMENTS_START\" or \"EXTRACTION_ATTACHMENTS_CONTINUE\".",
+        "folder_name": "conformance_tests/extraction_processor",
+        "acceptance_tests": [
+            "- Test The Function using the resource `[resource]data_extraction_test.json`. Test is successful if The Callback Server receives from DevRev a **single** event with \"event_type\" that equals \"EXTRACTION_DATA_DONE\". The test must not send event directly to The Callback Server.",
+            "- Test The Function using the resource `[resource]data_extraction_test.json`. Test is successful if The Callback Server does not receive from DevRev any event with \"event_type\" that equals \"EXTRACTION_DATA_ERROR\". The test must not send event directly to The Callback Server."
+        ]
+    }
+}
