@@ -134,30 +134,25 @@
 
 - Use The Initial Domain Mapping JSON object for initialDomainMapping parameter when spawning a new worker.
 
-- Implement The Function that pushes The Fetched Boards as external sync units (The Push Boards Function).
+- Implement The Function named "extraction" (The Extraction Function) that pushes The Fetched Boards as external sync units if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START".
 
   ***Acceptance Tests:***
   
-  - Test The Push Boards Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
+  - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
 
-- The Push Boards Function should fetch the cards count for each board and push it as part of the external sync units.
+- If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START" The Extraction Function should fetch the cards count for each board and push it as part of the external sync units.
 
-- Implement The Function that implements the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. (The Push Metadata Function).
+- If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'.
 
-- Implement The Function that pushes The Fetched Users to the repository designated for 'users' data (The Push Users Function).
-
-- Implement The Function that pushes The Fetched Cards to the repository designated for 'cards' data (The Push Cards Function).
-
-- Implement The Function that implements attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md) (The Attachment Extraction Function)
-
-- Implement The Function named "extraction" that calls:
-  - The Push Boards Function if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START".
-  - The Push Metadata Function if "event_type" equals "EXTRACTION_METADATA_START".
-  - The Push Users Function and The Push Cards Function if "event_type" equals "EXTRACTION_DATA_START" (but make sure that a single "EXTRACTION_DATA_DONE" event is emitted).
-  - The Attachment Extraction Function if "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE".
+- If "event_type" equals "EXTRACTION_DATA_START" The Extraction Function should:
+  - push The Fetched Users to the repository designated for 'users' data
+  - push The Fetched Cards to the repository designated for 'cards' data
+  (but make sure that a single "EXTRACTION_DATA_DONE" event is emitted)
 
   ***Acceptance Tests:***
 
-  - Test The Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
+  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
 
-  - Test The Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server does not receive from DevRev any event with "event_type" that equals "EXTRACTION_DATA_ERROR". The test must not send event directly to The Callback Server.
+  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server does not receive from DevRev any event with "event_type" that equals "EXTRACTION_DATA_ERROR". The test must not send event directly to The Callback Server.
+
+- If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
