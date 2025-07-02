@@ -2,9 +2,9 @@
     {
         "payload": {
             "connection_data": {
-                "key": "key=test-key&token=test-token",
+                "key": "key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>",
                 "key_type": "",
-                "org_id": "b6be2ceb-a549-4802-9685-85d0a1858985",
+                "org_id": "<TRELLO_ORGANIZATION_ID>",
                 "org_name": "Trello Workspace"
             },
             "event_context": {
