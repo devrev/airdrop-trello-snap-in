@@ -12,8 +12,8 @@
             "worker_data_url": "http://localhost:8003/external-worker"
         },
         "connection_data": {
-            "org_id": "b6be2ceb-a549-4802-9685-85d0a1858985",
-            "key": "key=test-key&token=test-token"
+            "org_id": "<TRELLO_ORGANIZATION_ID>",
+            "key": "key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>"
         }
     },
     "context": {

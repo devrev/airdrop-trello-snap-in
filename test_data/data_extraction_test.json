@@ -2,9 +2,9 @@
     {
         "payload": {
             "connection_data": {
-                "key": "key=test-key&token=test-token",
+                "key": "key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>",
                 "key_type": "",
-                "org_id": "b6be2ceb-a549-4802-9685-85d0a1858985",
+                "org_id": "<TRELLO_ORGANIZATION_ID>",
                 "org_name": "Trello Workspace"
             },
             "event_context": {
@@ -49,7 +49,7 @@
             "snap_in_version_id": "don:integration:dvrv-eu-1:devo/36shCCBEAA:snap_in_package/b66dda95-cf9e-48be-918c-8439ecdd548e:snap_in_version/50d4660e-dad9-41d6-9169-8a7e96b2d7fa",
             "service_account_id": "don:identity:dvrv-eu-1:devo/36shCCBEAA:svcacc/42",
             "secrets": {
-                "service_account_token": "test-token"
+                "service_account_token": "test-service-account-token"
             },
             "user_id": "don:identity:dvrv-eu-1:devo/36shCCBEAA:devu/1",
             "event_id": "",

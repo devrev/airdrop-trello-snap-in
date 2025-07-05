@@ -40,7 +40,9 @@
 
 ***Test Requirements:***
 
-- Credentials should be read from the environment. The following environment variables are required: `TRELLO_API_KEY` (Trello API Key), `TRELLO_TOKEN` (Trello OAuth Token), `TRELLO_ORGANIZATION_ID` (The Organization ID).
+- Credentials should be read from the environment. The following environment variables are required: `TRELLO_API_KEY` (The Trello API Key), `TRELLO_TOKEN` (The Trello OAuth Token), `TRELLO_ORGANIZATION_ID` (The Organization ID).
+
+- "external_sync_unit_id" "6752eb962a64828e59a35396" can be used when board ID is required for testing purposes.
 
 
 ## The Boilerplate Code
@@ -84,7 +86,7 @@
 
 ***Non-Functional Requirements:***
 
-- Store The External Domain Metadata JSON object as a separate source file.
+- Store The External Domain Metadata JSON object as a separate JSON file.
 
 ***Functional Requirements:***
 
@@ -105,22 +107,26 @@
 
 - The structure of The Initial Domain Mapping JSON object is specified by the JSON schema defined in the resource [initial_mappings_schema.yaml](initial_mappings_schema.yaml).
   - For a complete list of supported DevRev object types and their fields, see resource [Supported DevRev object types for Airdrop](docs/supported-object-types.md).
+  - For information about transformation methods, see resource [Mapping Reasons](docs/mapping-reasons.mdx).
+  - When working with devrev_leaf_type, be aware that the schema expects different formats depending on context. In most places, it should be passed as an object with object_category and object_type. However, in the airdrop-recipe-create-possible-record-type-mapping context, it must be a string representing only the object_type.
+  - Please note that mappings are split into separate ‘shards’ - one for each record type - for easier manipulation and storage.
+  - Please note that a leaf type or a concrete id has to be selected for use_devrev_record, but not both.
 
 ***Non-Functional Requirements:***
 
-- Store The Initial Domain Mapping JSON object as a separate source file.
-
+- Store The Initial Domain Mapping JSON object as a separate JSON file.
 
 ***Functional Requirements:***
 
 - Implement The Function that generates and returns The Initial Domain Mapping JSON object.
 
+
   ***Acceptance Tests:***
 
-  - Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <path to The External Domain Metadata JSON file>":
+  - Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <The External Domain Metadata JSON object file>":
     - The Chef CLI reads The Initial Domain Mapping JSON object from stdin.
     - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
-    - For the test to be successful The Chef CLI must return an empty output.
+    - The test should always fail if The Chef CLI returns a non-empty output.
     - The test should always fail if The Chef CLI is not available.
 
 
@@ -134,30 +140,25 @@
 
 - Use The Initial Domain Mapping JSON object for initialDomainMapping parameter when spawning a new worker.
 
-- Implement The Function that pushes The Fetched Boards as external sync units (The Push Boards Function).
+- Implement The Function named "extraction" (The Extraction Function) that pushes The Fetched Boards as external sync units if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START".
 
   ***Acceptance Tests:***
   
-  - Test The Push Boards Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
+  - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
 
-- The Push Boards Function should fetch the cards count for each board and push it as part of the external sync units.
+- If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START" The Extraction Function should fetch the cards count for each board and push it as part of the external sync units.
 
-- Implement The Function that implements the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. (The Push Metadata Function).
+- If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. Please note that The External Domain Metadata JSON object shouldn't be normalized when pushed to the repository.
 
-- Implement The Function that pushes The Fetched Users to the repository designated for 'users' data (The Push Users Function).
-
-- Implement The Function that pushes The Fetched Cards to the repository designated for 'cards' data (The Push Cards Function).
-
-- Implement The Function that implements attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md) (The Attachment Extraction Function)
-
-- Implement The Function named "extraction" that calls:
-  - The Push Boards Function if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START".
-  - The Push Metadata Function if "event_type" equals "EXTRACTION_METADATA_START".
-  - The Push Users Function and The Push Cards Function if "event_type" equals "EXTRACTION_DATA_START" (but make sure that a single "EXTRACTION_DATA_DONE" event is emitted).
-  - The Attachment Extraction Function if "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE".
+- If "event_type" equals "EXTRACTION_DATA_START" The Extraction Function should:
+  - push The Fetched Users to the repository designated for 'users' data
+  - push The Fetched Cards to the repository designated for 'cards' data
+  (but make sure that a single "EXTRACTION_DATA_DONE" event is emitted)
 
   ***Acceptance Tests:***
 
-  - Test The Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
+  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
 
-  - Test The Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Test is successful if The Callback Server does not receive from DevRev any event with "event_type" that equals "EXTRACTION_DATA_ERROR". The test must not send event directly to The Callback Server.
+  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server does not receive from DevRev any event with "event_type" that equals "EXTRACTION_DATA_ERROR". The test must not send event directly to The Callback Server.
+
+- If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
