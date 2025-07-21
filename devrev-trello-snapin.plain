@@ -189,8 +189,8 @@
     - field "description" should be mapped to "body" (rich text)
     - field "id_members" should be mapped to "owned_by_ids" using "use_as_array_value" transformation method
   - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
-    - field "priority" should contain fixed value "P0"
-    - field "stage" should contain fixed value "backlog"
+    - field "priority" should contain fixed value "P2"
+    - field "stage" should contain fixed value "triage"
   - The following The Stock Field Mapping Fields should be mapped using The DevRev Record Transformation Method:
     - field "applies_to_part_id" should refer to the "product" object type
 
