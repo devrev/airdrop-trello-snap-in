@@ -121,7 +121,7 @@
   - The record type 'cards' should have the following fields:
     - name (Name, is required, text)
     - url (URL, is required, text)
-    - description (Description, is required, text)
+    - description (Description, is required, rich text)
     - id_members (ID Members, is required, type: reference, it refers to the record type "#record:users")
 
 ### Generate 'initial_domain_mapping.json'
@@ -147,16 +147,14 @@
 
 - The External Domain Metadata JSON object should not be modified. If there are discrepancies between The External Domain Metadata JSON object and The Initial Domain Mapping JSON object, assume The External Domain Metadata JSON object is correct and The Initial Domain Mapping JSON object needs to be adjusted.
 
-- If there's a discrepancy between The Unit Tests and The Initial Domain Mapping JSON object regarding The Stock Field Mapping Field, The Unit Tests should be adjusted to match The Initial Domain Mapping JSON object, not the other way around.
-
 ***Test Requirements:*** 
 
 - Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <The External Domain Metadata JSON object file>":
   - The Chef CLI reads The Initial Domain Mapping JSON object from stdin.
-  - For return type of The Chef CLI to stdout, see resource [chef_cli_output_schema.json](resources/chef_cli_output_schema.json). Field "RemainingDeficiencies" contains information about the deficiencies that need to be resolved for the validation to pass.
+  - For return type of The Chef CLI to stdout, see resource [chef_cli_output_schema.json](resources/chef_cli_output_schema.json). Fields "RemainingDeficiencies" and "Warnings" contains information about the deficiencies that need to be resolved for the validation to pass.
   - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
   - The test should always fail if we get an empty output.
-  - The test must fail unless the "RemainingDeficiencies" field of the first object in the Chef CLI output array is present and its value is exactly null.
+  - The test must fail unless both of the fields "RemainingDeficiencies" and "Warnings" of the first object in the Chef CLI output array are present and both of their values are exactly null.
   - The test should always fail if The Chef CLI is not available.
 
 - The Initial Domain Mapping JSON object should always be read from The Implementation Code.
