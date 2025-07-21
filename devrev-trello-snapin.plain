@@ -61,21 +61,23 @@
 
 ***Non-Functional Requirements:***
 
-- The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API.
+- The OpenAPI Specification is provided in the resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml). The OpenAPI Specification describes The API.
 
+- The Mapping is a method in The Implementation Code that maps the fields in The API response to the fields in The Function's output. The Mapping should output "snake_case" for JSON keys. The Mapping should map every single field from The OpenAPI Specification to The Function's output.
+
+- If The Function uses The API to fetch data, The Mapping should be used along its rules.
 
 ***Functional Requirements:***
 
-- Implement The Function that uses The API to fetch The List of Boards (The Fetched Boards).
+- Implement The Function that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards".
 
   ***Acceptance Tests:***
 
   - When using The Test Trello Credentials a board with the name "SaaS connectors" must be in the result of The Function.
 
-- Implement The Function that uses The API to fetch The List of Users of The Organization (The Fetched Users). The Organization ID is provided in the "org_id" field of the "connection_data" dictionary which is part of "payload" dictionary.
+- Implement The Function that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members". The Organization ID is provided in the "org_id" field of the "connection_data" dictionary which is part of "payload" dictionary.
 
-- Implement The Function that uses The API to fetch The List of Cards for The Board (The Fetched Cards). The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
-
+- Implement The Function that uses The API to fetch The List of Cards for The Board (The Fetched Cards) using the endpoint "/boards/{id}/cards". The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
 
 ## Generate 'external_domain_metadata.json'
 
