@@ -209,6 +209,78 @@ paths:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Card'
+              examples:
+                sample:
+                  summary: Example response
+                  value:
+                    - id: "card_id_123"
+                      badges:
+                        attachments: 0
+                        fogbugz: ""
+                        checkItems: 0
+                        checkItemsChecked: 0
+                        checkItemsEarliestDue: null
+                        comments: 0
+                        description: false
+                        due: null
+                        dueComplete: false
+                        lastUpdatedByAi: false
+                        start: null
+                        externalSource: null
+                        attachmentsByType:
+                          trello:
+                            board: 0
+                            card: 0
+                        location: false
+                        votes: 0
+                        maliciousAttachments: 0
+                        viewingMemberVoted: false
+                        subscribed: false
+                      checkItemStates: []
+                      closed: false
+                      dueComplete: false
+                      dateLastActivity: "2025-06-06T06:08:05.912Z"
+                      desc: ""
+                      descData:
+                        emoji: {}
+                      due: null
+                      dueReminder: null
+                      email: null
+                      idBoard: "board_id_456"
+                      idChecklists: []
+                      idList: "list_id_789"
+                      idMembers: []
+                      idMembersVoted: []
+                      idShort: 1
+                      idAttachmentCover: null
+                      labels: []
+                      idLabels: []
+                      manualCoverAttachment: false
+                      name: "Card Name"
+                      nodeId: "node_id_abc"
+                      pinned: false
+                      pos: 140737488355328
+                      shortLink: "short_link_xyz"
+                      shortUrl: "https://trello.com/c/short_link_xyz"
+                      start: null
+                      subscribed: false
+                      url: "https://trello.com/c/short_link_xyz/1-card-name"
+                      cover:
+                        idAttachment: null
+                        color: null
+                        idUploadedBackground: null
+                        size: "normal"
+                        brightness: "dark"
+                        idPlugin: null
+                      isTemplate: false
+                      cardRole: null
+                      mirrorSourceId: null
   '/boards/{id}/cards/{filter}':
     get:
       description: >-
@@ -790,6 +862,54 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Board'
+              examples:
+                sample:
+                  summary: Example response
+                  value:
+                    - id: "exampleBoardId"
+                      nodeId: "ari:cloud:trello::board/workspace/exampleOrgId/exampleBoardId"
+                      name: "Example Board Name"
+                      desc: ""
+                      descData: null
+                      closed: false
+                      dateClosed: null
+                      idOrganization: "exampleOrgId"
+                      idEnterprise: null
+                      pinned: false
+                      starred: false
+                      url: "https://trello.com/b/exampleShortLink/example-board-name"
+                      shortLink: "exampleShortLink"
+                      subscribed: false
+                      labelNames:
+                        green: ""
+                        yellow: ""
+                        orange: ""
+                      powerUps: []
+                      dateLastActivity: "2025-03-26T12:04:13.067Z"
+                      dateLastView: "2025-06-06T06:07:13.134Z"
+                      shortUrl: "https://trello.com/b/exampleShortLink"
+                      idTags: []
+                      datePluginDisable: null
+                      creationMethod: null
+                      ixUpdate: "1"
+                      templateGallery: null
+                      enterpriseOwned: false
+                      idBoardSource: null
+                      premiumFeatures:
+                        - "additionalBoardBackgrounds"
+                        - "additionalStickers"
+                        - "customBoardBackgrounds"
+                        - "customEmoji"
+                        - "customStickers"
+                        - "plugins"
+                      idMemberCreator: "exampleMemberId"
+                      type: null
+                      memberships:
+                        - id: "exampleMembershipId"
+                          idMember: "exampleMemberId"
+                          memberType: "admin"
+                          unconfirmed: false
+                          deactivated: false
   '/members/{id}/boardsInvited':
     get:
       description: Get the boards the member has been invited to
@@ -1110,6 +1230,14 @@ paths:
                 items:
                   oneOf:
                     - $ref: '#/components/schemas/Member'
+              examples:
+                sample:
+                  summary: Example response
+                  value:
+                    - id: "examplesaasID1"
+                      fullName: "My full name"
+                      username: "examplesaas1"
+                      lastActive: "2025-04-06T08:37:21.065Z"
   '/organizations/{id}/memberships':
     get:
       description: List the memberships of a Workspace
