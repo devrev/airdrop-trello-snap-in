@@ -79,37 +79,52 @@
 
 - Implement The Function that uses The API to fetch The List of Cards for The Board (The Fetched Cards) using the endpoint "/boards/{id}/cards". The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
 
-## Generate 'external_domain_metadata.json'
+## Generate 'initial_domain_mapping.json' and 'external_domain_metadata.json'
+
+***Non-Functional Requirements:***
+
+- Store The External Domain Metadata JSON object as a separate JSON file.
+
+- Store The Initial Domain Mapping JSON object as a separate JSON file.
+
+### Generate 'external_domain_metadata.json'
 
 ***Definitions:***
 
 - The structure of The External Domain Metadata JSON object is specified by the JSON schema defined in the resource [external_domain_metadata_schema.json](external_domain_metadata_schema.json).
   - Please note that all refers_to keys in reference and typed_reference fields must use the format "#record:<record_type_key>", where <record_type_key> matches a key in the top-level record_types. This ensures references are unambiguous and valid. Use {} as the value to refer by default identifier (id), or specify { "by_field": "field_name" } to use a custom key.
 
-***Non-Functional Requirements:***
+***Test Requirements:***
 
-- Store The External Domain Metadata JSON object as a separate JSON file.
+- Validate generated The External Domain Metadata JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli validate-metadata":
+  - This command reads JSON object from stdin.
+  - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
+  - For the validation of The External Domain Metadata JSON object to be successful The Chef CLI must return an empty output.
+  - The test should always fail if The Chef CLI is not available.
 
+- The External Domain Metadata JSON object should always be read from The Implementation Code.
 
-***Test Requirements:*** 
+- If The Conformance Tests test The External Domain Metadata JSON object, test it only against The Chef CLI. Don't test it against the literal JSON contents of The External Domain Metadata JSON object.
+
+- If validating The External Domain Metadata JSON object with The Chef CLI, print the stdout and stderr of The Chef CLI to the console.
 
 - The Conformance Tests should not modify nor do any transformations on The External Domain Metadata JSON object at all. If The Conformance Tests indicates a problem with The External Domain Metadata JSON object, The External Domain Metadata JSON object in the implementation code should be adjusted to fix the problem. The tests should only validate the JSON object in its original form.
 
 ***Functional Requirements:***
 
-- Implement The Function that generates and returns The External Domain Metadata JSON object. The record types that should be included in the The External Domain Metadata are The List of Cards ('cards') and The List of Users ('users').
+- Implement The Function that generates and returns The External Domain Metadata JSON object. At start, The External Domain Metadata JSON object should have the only record type 'users' (Name: Users), which will be extended later on.
+  - The record type 'users' should have two fields:
+    - full_name (Full Name, is required, text)
+    - username (Username, is required, text)
 
-  ***Acceptance Tests:***
+- Extend The External Domain Metadata JSON object to include the record type 'cards'.
+  - The record type 'cards' should have the following fields:
+    - name (Name, is required, text)
+    - url (URL, is required, text)
+    - description (Description, is required, rich text)
+    - id_members (ID Members, is required, type: reference, it refers to the record type "#record:users")
 
-  - Validate generated The External Domain Metadata JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli validate-metadata":
-    - This command reads JSON object from stdin.
-    - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
-    - For the test to be successful The Chef CLI must return an empty output.
-    - The test should always fail if The Chef CLI is not available.
-    - The Acceptance Tests should not modify nor do any transformations on The External Domain Metadata JSON object at all. The Acceptance Tests should just read The External Domain Metadata JSON object and pass it to The Chef CLI.
-
-
-## Generate 'initial_domain_mapping.json'
+### Generate 'initial_domain_mapping.json'
 
 ***Definitions:***
 
@@ -120,28 +135,64 @@
   - Please note that mappings are split into separate ‘shards’ - one for each record type - for easier manipulation and storage.
   - Please note that a leaf type or a concrete id has to be selected for use_devrev_record, but not both.
 
+- The Stock Field Mapping Field is a configuration object within the Initial Domain Mapping JSON structure that defines how external system data fields are mapped to DevRev's built-in (stock) fields. It is located within the "stock_field_mappings" object inside a blueprint shard configuration.
+
+- The Fixed Transformation Method is a transformation method that is used to set a fixed value to a field. To apply The Fixed Transformation Method to The Stock Field Mapping Field, set the Metadata extraction transformation method type to "use_fixed_value". If using The Fixed Transformation Method, the value of the field "transformation_method_for_set" inside The Stock Field Mapping Field should be `{"enum": "<value>", "transformation_method": "use_fixed_value", "value": "enum_value"}`, where `<value>` is the fixed value.
+
+- The External Transformation Method is a transformation method that is used to map an external field to a DevRev stock field. To apply The External Transformation Method to The Stock Field Mapping Field, set the Metadata extraction transformation method type to "use_directly", "use_as_array_value", "use_rich_text", depending on the context. Field "primary_external_field" should be set to the name of the external field to map.
+
+- The DevRev Record Transformation Method is a transformation method that is used enable use of a fixed reference to something in DevRev. To apply The DevRev Record Transformation Method to The Stock Field Mapping Field, set the Metadata extraction transformation method type to "use_devrev_record".
 
 ***Non-Functional Requirements:***
 
-- Store The Initial Domain Mapping JSON object as a separate JSON file.
+- The External Domain Metadata JSON object should not be modified. If there are discrepancies between The External Domain Metadata JSON object and The Initial Domain Mapping JSON object, assume The External Domain Metadata JSON object is correct and The Initial Domain Mapping JSON object needs to be adjusted.
 
-***Test Requirements:***
+***Test Requirements:*** 
+
+- Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <The External Domain Metadata JSON object file>":
+  - The Chef CLI reads The Initial Domain Mapping JSON object from stdin.
+  - For return type of The Chef CLI to stdout, see resource [chef_cli_output_schema.json](resources/chef_cli_output_schema.json). Fields "RemainingDeficiencies" and "Warnings" contains information about the deficiencies that need to be resolved for the validation to pass.
+  - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
+  - The test should always fail if we get an empty output.
+  - The test must fail unless both of the fields "RemainingDeficiencies" and "Warnings" of the first object in the Chef CLI output array are present and both of their values are exactly null.
+  - The test should always fail if The Chef CLI is not available.
+
+- The Initial Domain Mapping JSON object should always be read from The Implementation Code.
+
+- If validating The Initial Domain Mapping JSON object with The Chef CLI, print the stdout and stderr of The Chef CLI to the console.
+
+- If The Conformance Tests test The Initial Domain Mapping JSON object, test it only against The Chef CLI. Don't test it against the literal JSON contents of The Initial Domain Mapping JSON object.
 
 - The Conformance Tests should not modify nor do any transformations on The Initial Domain Mapping JSON object at all. If The Conformance Tests indicates a problem with The Initial Domain Mapping JSON object, The Initial Domain Mapping JSON object in the implementation code should be adjusted to fix the problem. The tests should only validate the JSON object in its original form.
 
 ***Functional Requirements:***
 
-- Implement The Function that generates and returns The Initial Domain Mapping JSON object.
+- Implement The Function that generates and returns The Initial Domain Mapping JSON object. At start, The Initial Domain Mapping JSON object should have the only record_type_mappings "users", which will be extended later on.
+  - Set the default mapping so that each external user is mapped to a "devu" user object.
+  - There should be a single "possible_record_type_mappings" element, specifying:
+    - The mapping is one-way, e.g. reverse is false, forward is true
+    - There should be no custom fields in the mapping.
+    - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
+  - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+    - field "full_name" should be mapped to "full_name"
+    - field "username" should be mapped to "display_name"
 
-  ***Acceptance Tests:***
-
-  - Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <The External Domain Metadata JSON object file>":
-    - The Chef CLI reads The Initial Domain Mapping JSON object from stdin.
-    - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
-    - The test should always fail if The Chef CLI returns a non-empty output.
-    - The test should always fail if The Chef CLI is not available.
-    - The Acceptance Tests should not modify nor do any transformations on The Initial Domain Mapping JSON object at all. The Acceptance Tests should just read The Initial Domain Mapping JSON object and pass it to The Chef CLI.
-
+- Extend The Initial Domain Mapping JSON object to include the record_type_mappings "cards".
+  - Set the default mapping so that each external card is mapped to a "issue" object.
+  - There should be a single "possible_record_type_mappings" element, specifying:
+    - The mapping is one-way, e.g. reverse is false, forward is true
+    - There should be no custom fields in the mapping.
+    - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
+  - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+    - field "name" should be mapped to "title"
+    - field "url" should be mapped to "item_url_field"
+    - field "description" should be mapped to "body" (rich text)
+    - field "id_members" should be mapped to "owned_by_ids" using "use_as_array_value" transformation method
+  - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
+    - field "priority" should contain fixed value "P0"
+    - field "stage" should contain fixed value "backlog"
+  - The following The Stock Field Mapping Fields should be mapped using The DevRev Record Transformation Method:
+    - field "applies_to_part_id" should refer to the "product" object type
 
 ## Pushing data to DevRev servers
 
