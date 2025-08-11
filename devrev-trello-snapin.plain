@@ -85,7 +85,7 @@
 
 ### Generate 'external_domain_metadata.json'
 
-{% include "templates/external_domain_metadata.plain" %}
+{% include "templates/external_domain_metadata_boilerplate.plain" %}
 
 ***Functional Requirements:***
 
@@ -103,7 +103,7 @@
 
 ### Generate 'initial_domain_mapping.json'
 
-{% include "templates/initial_domain_mapping.plain" %}
+{% include "templates/initial_domain_mapping_boilerplate.plain" %}
 
 ***Functional Requirements:***
 
@@ -217,7 +217,9 @@
   
   - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
 
-{% include "templates/chef_cli_normalization_test.plain", record_type: "users" %}
+  - Validate The Normalization Function with the chef-cli tool (The Chef CLI) for the "users" record type:
+    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID.
+{% include "templates/chef_cli_normalization_validation.plain", record_type: "users" %}
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push both the 'cards' data and the 'users' data. To push the 'cards' data, it should:
   - Fetch The Fetched Cards using pagination. If there's a "before" parameter in The Extraction State Object, use it to resume pagination from that point. Otherwise, start from the first page.
@@ -232,7 +234,9 @@
 
   - Test The Extraction Function using the resource [data_extraction_continue_test.json](test_data/data_extraction_continue_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server. The event_data should contain an "artifacts" array where one of the artifacts has "item_type" equal to "cards" and "item_count" equal to 150.
 
-{% include "templates/chef_cli_normalization_test.plain", record_type: "cards" %}
+  - Validate The Normalization Function with the chef-cli tool (The Chef CLI) for the "cards" record type:
+    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID.
+{% include "templates/chef_cli_normalization_validation.plain", record_type: "cards" %}
 
 - If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
 
