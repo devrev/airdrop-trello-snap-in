@@ -32,11 +32,14 @@
 
 - The Fetched Cards are The List of Cards that are fetched from The API.
 
-
 ***Non-Functional Requirements:***
 
-- The API key and token are provided in the "key" field of the "connection_data" dictionary which is part of "payload" dictionary. The "key" field has the following internal format: "key=<api_key>&token=<token>"
+- The Trello Internal Client is a TypeScript service that communicates with The API. These are the rules for The Trello Internal Client:
+  - The Trello Internal Client should be initialized with The Snap-In's event payload. 
+  - If we need to create a new request to The API, we must create a new method in The Trello Internal Client.
+  - Communication with The API must be completely abstracted away from The Function. The Function must be able to initialize The Trello Internal Client, call the relevant method from The Trello Internal Client and get the response from The API.
 
+- The API key and token are provided in the "key" field of the "connection_data" dictionary which is part of "payload" dictionary. The "key" field has the following internal format: "key=<api_key>&token=<token>"
 
 ***Test Requirements:***
 
@@ -45,29 +48,17 @@
 - "external_sync_unit_id" "6752eb962a64828e59a35396" can be used when board ID is required for testing purposes.
 
 
-## The Boilerplate Code
+## Data Fetching
 
 ***Non-Functional Requirements:***
 
 - The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API.
 
+- The Functions being implemented *must not* invoke The Spawn Method nor The Worker Thread.
 
 ***Functional Requirements:***
 
-- Implement The Function that provides a check if authentication with The API works.
-
-
-## Data Fetching
-
-***Non-Functional Requirements:***
-
-- The OpenAPI Specification is provided in the resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml). The OpenAPI Specification describes The API.
-
-- The Mapping is a method in The Implementation Code that maps the fields in The API response to the fields in The Function's output. The Mapping should output "snake_case" for JSON keys. The Mapping should map every single field from The OpenAPI Specification to The Function's output.
-
-- If The Function uses The API to fetch data, The Mapping should be used along its rules.
-
-***Functional Requirements:***
+- Implement The Function that provides a check if authentication with The API works. Authentication should be checked by making a request to the endpoint "/members/{id}", and providing "me" as the value of the "id" parameter.
 
 - Implement The Function that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards".
 
@@ -77,152 +68,182 @@
 
 - Implement The Function that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members". The Organization ID is provided in the "org_id" field of the "connection_data" dictionary which is part of "payload" dictionary.
 
-- Implement The Function that uses The API to fetch The List of Cards for The Board (The Fetched Cards) using the endpoint "/boards/{id}/cards". The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
+- Implement The Function called "fetch_board_cards" that uses The API to fetch The Fetched Cards for a given board using the endpoint "/boards/{id}/cards".
+  - The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
+  - The following pagination parameters should be supported:
+    - "limit" (required, integer)
+    - "before" (optional, string)
+  - "limit" and "before" should be provided in the "payload" dictionary.
+
+  ***Acceptance Tests:***
+
+  - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and no "before" parameter. Expect the number of The Fetched Cards to be 100.
+
+  - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and "before" set to "688725fdf26b3c50430cae23". Expect the number of The Fetched Cards to be 50.
 
 ## Generate 'initial_domain_mapping.json' and 'external_domain_metadata.json'
 
-***Non-Functional Requirements:***
-
-- Store The External Domain Metadata JSON object as a separate JSON file.
-
-- Store The Initial Domain Mapping JSON object as a separate JSON file.
-
 ### Generate 'external_domain_metadata.json'
 
-***Definitions:***
-
-- The structure of The External Domain Metadata JSON object is specified by the JSON schema defined in the resource [external_domain_metadata_schema.json](external_domain_metadata_schema.json).
-  - Please note that all refers_to keys in reference and typed_reference fields must use the format "#record:<record_type_key>", where <record_type_key> matches a key in the top-level record_types. This ensures references are unambiguous and valid. Use {} as the value to refer by default identifier (id), or specify { "by_field": "field_name" } to use a custom key.
-
-***Test Requirements:***
-
-- Validate generated The External Domain Metadata JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli validate-metadata":
-  - This command reads JSON object from stdin.
-  - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
-  - For the validation of The External Domain Metadata JSON object to be successful The Chef CLI must return an empty output.
-  - The test should always fail if The Chef CLI is not available.
-
-- The External Domain Metadata JSON object should always be read from The Implementation Code.
-
-- If The Conformance Tests test The External Domain Metadata JSON object, test it only against The Chef CLI. Don't test it against the literal JSON contents of The External Domain Metadata JSON object.
-
-- If validating The External Domain Metadata JSON object with The Chef CLI, print the stdout and stderr of The Chef CLI to the console.
-
-- The Conformance Tests should not modify nor do any transformations on The External Domain Metadata JSON object at all. If The Conformance Tests indicates a problem with The External Domain Metadata JSON object, The External Domain Metadata JSON object in the implementation code should be adjusted to fix the problem. The tests should only validate the JSON object in its original form.
+{% include "templates/external_domain_metadata.plain" %}
 
 ***Functional Requirements:***
 
-- Implement The Function that generates and returns The External Domain Metadata JSON object. At start, The External Domain Metadata JSON object should have the only record type 'users' (Name: Users), which will be extended later on.
+- Implement The Function 'get_external_domain_metadata' that generates and returns The External Domain Metadata JSON object. The External Domain Metadata JSON object should have the record type 'users' (Name: Users).
   - The record type 'users' should have two fields:
     - full_name (Full Name, is required, text)
     - username (Username, is required, text)
 
-- Extend The External Domain Metadata JSON object to include the record type 'cards'.
+- The External Domain Metadata JSON object should include the record type 'users' and 'cards' (Name: Cards).
   - The record type 'cards' should have the following fields:
     - name (Name, is required, text)
     - url (URL, is required, text)
     - description (Description, is required, rich text)
-    - id_members (ID Members, is required, type: reference, it refers to the record type "#record:users")
+    - id_members (ID Members, is required, type: reference. Field id_members refers to the record type "#record:users". Type of field id_members is an array with max_length 50)
 
 ### Generate 'initial_domain_mapping.json'
 
-***Definitions:***
-
-- The structure of The Initial Domain Mapping JSON object is specified by the JSON schema defined in the resource [initial_mappings_schema.yaml](initial_mappings_schema.yaml).
-  - For a complete list of supported DevRev object types and their fields, see resource [Supported DevRev object types for Airdrop](docs/supported-object-types.md).
-  - For information about transformation methods, see resource [Mapping Reasons](docs/mapping-reasons.mdx).
-  - When working with devrev_leaf_type, be aware that the schema expects different formats depending on context. In most places, it should be passed as an object with object_category and object_type. However, in the airdrop-recipe-create-possible-record-type-mapping context, it must be a string representing only the object_type.
-  - Please note that mappings are split into separate ‘shards’ - one for each record type - for easier manipulation and storage.
-  - Please note that a leaf type or a concrete id has to be selected for use_devrev_record, but not both.
-
-- The Stock Field Mapping Field is a configuration object within the Initial Domain Mapping JSON structure that defines how external system data fields are mapped to DevRev's built-in (stock) fields. It is located within the "stock_field_mappings" object inside a blueprint shard configuration.
-
-- The Fixed Transformation Method is a transformation method that is used to set a fixed value to a field. To apply The Fixed Transformation Method to The Stock Field Mapping Field, set the Metadata extraction transformation method type to "use_fixed_value". If using The Fixed Transformation Method, the value of the field "transformation_method_for_set" inside The Stock Field Mapping Field should be `{"enum": "<value>", "transformation_method": "use_fixed_value", "value": "enum_value"}`, where `<value>` is the fixed value.
-
-- The External Transformation Method is a transformation method that is used to map an external field to a DevRev stock field. To apply The External Transformation Method to The Stock Field Mapping Field, set the Metadata extraction transformation method type to "use_directly", "use_as_array_value", "use_rich_text", depending on the context. Field "primary_external_field" should be set to the name of the external field to map.
-
-- The DevRev Record Transformation Method is a transformation method that is used enable use of a fixed reference to something in DevRev. To apply The DevRev Record Transformation Method to The Stock Field Mapping Field, set the Metadata extraction transformation method type to "use_devrev_record".
-
-***Non-Functional Requirements:***
-
-- The External Domain Metadata JSON object should not be modified. If there are discrepancies between The External Domain Metadata JSON object and The Initial Domain Mapping JSON object, assume The External Domain Metadata JSON object is correct and The Initial Domain Mapping JSON object needs to be adjusted.
-
-***Test Requirements:*** 
-
-- Validate generated The Initial Domain Mapping JSON object with the chef-cli tool (The Chef CLI) using the command "chef-cli initial-mapping check -m <The External Domain Metadata JSON object file>":
-  - The Chef CLI reads The Initial Domain Mapping JSON object from stdin.
-  - For return type of The Chef CLI to stdout, see resource [chef_cli_output_schema.json](resources/chef_cli_output_schema.json). Fields "RemainingDeficiencies" and "Warnings" contains information about the deficiencies that need to be resolved for the validation to pass.
-  - The path to The Chef CLI executable is provided in the environment variables `CHEF_CLI_PATH`.
-  - The test should always fail if we get an empty output.
-  - The test must fail unless both of the fields "RemainingDeficiencies" and "Warnings" of the first object in the Chef CLI output array are present and both of their values are exactly null.
-  - The test should always fail if The Chef CLI is not available.
-
-- The Initial Domain Mapping JSON object should always be read from The Implementation Code.
-
-- If validating The Initial Domain Mapping JSON object with The Chef CLI, print the stdout and stderr of The Chef CLI to the console.
-
-- If The Conformance Tests test The Initial Domain Mapping JSON object, test it only against The Chef CLI. Don't test it against the literal JSON contents of The Initial Domain Mapping JSON object.
-
-- The Conformance Tests should not modify nor do any transformations on The Initial Domain Mapping JSON object at all. If The Conformance Tests indicates a problem with The Initial Domain Mapping JSON object, The Initial Domain Mapping JSON object in the implementation code should be adjusted to fix the problem. The tests should only validate the JSON object in its original form.
+{% include "templates/initial_domain_mapping.plain" %}
 
 ***Functional Requirements:***
 
-- Implement The Function that generates and returns The Initial Domain Mapping JSON object. At start, The Initial Domain Mapping JSON object should have the only record_type_mappings "users", which will be extended later on.
-  - Set the default mapping so that each external user is mapped to a "devu" user object.
-  - There should be a single "possible_record_type_mappings" element, specifying:
-    - The mapping is one-way, e.g. reverse is false, forward is true
-    - There should be no custom fields in the mapping.
-    - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
-  - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
-    - field "full_name" should be mapped to "full_name"
-    - field "username" should be mapped to "display_name"
+- Implement The Function that generates and returns The Initial Domain Mapping JSON object. The Initial Domain Mapping JSON object should have record_type_mappings "users".
+  - The record_type_mappings "users" should be the following:
+    - Set the default mapping so that each external user is mapped to a "devu" user object.
+    - There should be a single "possible_record_type_mappings" element, specifying:
+      - The mapping is one-way, e.g. reverse is false, forward is true
+      - There should be no custom fields in the mapping.
+      - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
+    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+      - field "full_name" should be mapped to "full_name"
+      - field "username" should be mapped to "display_name"
 
-- Extend The Initial Domain Mapping JSON object to include the record_type_mappings "cards".
-  - Set the default mapping so that each external card is mapped to a "issue" object.
-  - There should be a single "possible_record_type_mappings" element, specifying:
-    - The mapping is one-way, e.g. reverse is false, forward is true
-    - There should be no custom fields in the mapping.
-    - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
-  - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
-    - field "name" should be mapped to "title"
-    - field "url" should be mapped to "item_url_field"
-    - field "description" should be mapped to "body" (rich text)
-    - field "id_members" should be mapped to "owned_by_ids" using "use_as_array_value" transformation method
-  - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
-    - field "priority" should contain fixed value "P2"
-    - field "stage" should contain fixed value "triage"
-  - The following The Stock Field Mapping Fields should be mapped using The DevRev Record Transformation Method:
-    - field "applies_to_part_id" should refer to the "product" object type
+- The Initial Domain Mapping JSON object should have record_type_mappings for "users" and "cards". 
+  - The record_type_mappings "cards" should be the following:
+    - Set the default mapping so that each external card is mapped to a "issue" object.
+    - There should be a single "possible_record_type_mappings" element, specifying:
+      - The mapping is one-way, e.g. reverse is false, forward is true
+      - There should be no custom fields in the mapping.
+      - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
+    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+      - field "name" should be mapped to "title"
+      - field "url" should be mapped to "item_url_field"
+      - field "description" should be mapped to "body" (rich text)
+      - field "id_members" should be mapped to "owned_by_ids" (use directly)
+    - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
+      - field "priority" should contain fixed value "P2"
+      - field "stage" should contain fixed value "triage"
+    - The following The Stock Field Mapping Fields should be mapped using The DevRev Record Transformation Method:
+      - field "applies_to_part_id" should refer to the "product" object type
 
 ## Pushing data to DevRev servers
 
+***Definitions:***
+
+- Resource [data-extraction.md](docs/data-extraction.md) should serve as a generic guide for the implementation of The Extraction Function.
+
+- Field "dateLastActivity" in The Fetched Cards is of format ISO 8601 Extended Format with timezone.
+
+- If filtering by "dateLastActivity", the filter should be done client-side. The API doesn't support filtering by "dateLastActivity".
+
 ***Non-Functional Requirements:***
 
-- All operations accessing external services or data providers must be implemented in worker threads.
+- The Extraction State Object is a state passed to The Worker Thread. We should use the following structure for The Extraction State Object:
+  - "users":
+    - "completed" (boolean, required, indicating if the users data has been pushed to the DevRev servers)
+  - "cards":
+    - "completed" (boolean, required, indicating if the cards data has been fully pushed to the DevRev servers)
+    - "before" (string, optional, indicating the ID of the what's the next "before" parameter to use when fetching the next page of The Fetched Cards)
+    - "modifiedSince" (string, optional, timestamp used for incremental data synchronization to fetch only the cards that have been updated since the last sync)
+  - "attachments": 
+    - "completed" (boolean, required, indicating if the attachments data has been pushed to the DevRev servers)
+
+- All operations accessing external services or data providers must be implemented in worker thread (The Worker Thread). The Worker Thread should be initialized with the method "spawn" (The Spawn Method). The Spawn Method should be initialized with the following parameters:
+  - The Extraction Function start The Worker Thread with timeout of 10 minutes.
+  - "isLocalDevelopment" *must not* be set.
+  - "initialState" should be The Extraction State Object with all "completed" fields set to false, and "before" and "modifiedSince" fields set to undefined.
+  - Use The Initial Domain Mapping JSON object for initialDomainMapping parameter when spawning a new worker.
+  - Note: The Initial Domain Mapping JSON object should be read directly from the JSON file.
+  - Note: No additional fields should be added to The Extraction State Object.
+
+- The Trello Internal Client should be used to retrieve The Fetched Boards, The Fetched Users, The Fetched Cards and all other data from The API.
+
+- The Fetched Users and The Fetched Cards *must not* be mocked and must be retrieved from The API.
+
+- The Extraction Function should not stringify error messages. If an error is thrown, it should be logged before throwing it.
+
+- The Fetched Cards should be retrieved in full with pagination (with "limit" and "before" parameters). This includes making multiple requests to The API.
+  - Initial request: limit=100, propagate the "before" parameter from The Extraction State Object only if it exists.
+  - If response < 100 cards: complete
+  - If response = 100 cards: make next request with limit=100, before=first_card_id, where "first_card_id" is field "id" of the first card in the response.
+  - Repeat previous step until response < 100 cards
+
+- To retrieve "created_date" from The API and convert it in The Normalization Function, keep in mind that the first 8 characters represent a Unix timestamp in hexadecimal format. To retrieve the "created_date" from The API:
+  - Take the first 8 characters of the ID
+  - convert to decimal
+  - convert to ISO 8601 Extended Format with timezone.
 
 ***Functional Requirements:***
 
-- Use The Initial Domain Mapping JSON object for initialDomainMapping parameter when spawning a new worker.
-
-- Implement The Function named "extraction" (The Extraction Function) that pushes The Fetched Boards as external sync units if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START".
+- Implement The Extraction Function that:
+  - Retrieves The Fetched Boards
+  - Pushes The Fetched Boards as external sync units if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START"
+  - The following mapping from the fields in The Fetched Boards to the fields in The External Sync Units should be used:
+    - "id" from The Fetched Boards should be mapped to "id" in The External Sync Units
+    - "name" from The Fetched Boards should be mapped to "name" in The External Sync Units
+    - "desc" from The Fetched Boards should be mapped to "description" in The External Sync Units
+    - "item_type" should have a fixed value of "tasks"
 
   ***Acceptance Tests:***
   
   - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
 
-- If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START" The Extraction Function should fetch the cards count for each board and push it as part of the external sync units.
+- If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START" The Extraction Function should:
+  - For each board from The Fetched Boards, retrieve the number of The Fetched Cards.
+  - Set the value of The External Sync Unit Item Count of each board to the number of The Fetched Cards.
+
+  ***Acceptance Tests:***
+
+  - Test The Extraction Function using the resource [external_sync_unit_counts.json](test_data/external_sync_unit_start.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. For the test to be successful, the callback server **must** receive from DevRev an event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The event_data should contain an "external_sync_units" array where one of the external sync units has "id" equal to The Board ID of "688725dad59c015ce052eecf" and "item_count" equal to 150. The test must not send the event directly to The Callback Server. 
 
 - If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. Please note that The External Domain Metadata JSON object shouldn't be normalized when pushed to the repository.
 
-- If "event_type" equals "EXTRACTION_DATA_START" The Extraction Function should:
-  - push The Fetched Users to the repository designated for 'users' data
-  - push The Fetched Cards to the repository designated for 'cards' data
-  (but make sure that a single "EXTRACTION_DATA_DONE" event is emitted)
+- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'users' data. To push the 'users' data, it should:
+  - Retrieve The Fetched Users
+  - push The Fetched Users to the repository designated for 'users' data.
+  - Update The Extraction State Object to indicate that the users data has been pushed to the DevRev servers
+
+  ***Acceptance Tests:***
+  
+  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
+
+{% include "templates/chef_cli_normalization_test.plain", record_type: "users" %}
+
+- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push both the 'cards' data and the 'users' data. To push the 'cards' data, it should:
+  - Fetch The Fetched Cards using pagination. If there's a "before" parameter in The Extraction State Object, use it to resume pagination from that point. Otherwise, start from the first page.
+  - After every call to The API for fetching The Fetched Cards:
+    - Update "before" parameter in The Extraction State Object to the ID of the first card in the current page of The Fetched Cards
+    - Push The Fetched Cards from the current page to the repository designated for 'cards' data.
+  - Extraction of The Fetch Cards is successful only after all pages have been processed. After success, update The Extraction State Object to indicate that the cards data has been fully pushed to the DevRev servers.
 
   ***Acceptance Tests:***
 
   - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
 
-  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server does not receive from DevRev any event with "event_type" that equals "EXTRACTION_DATA_ERROR". The test must not send event directly to The Callback Server.
+  - Test The Extraction Function using the resource [data_extraction_continue_test.json](test_data/data_extraction_continue_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server. The event_data should contain an "artifacts" array where one of the artifacts has "item_type" equal to "cards" and "item_count" equal to 150.
+
+{% include "templates/chef_cli_normalization_test.plain", record_type: "cards" %}
 
 - If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
+
+- If "event_type" equals "EXTRACTION_DATA_START", The Extraction Function should support incremental data synchronization as described in the resource [incremental_mode.md](docs/incremental_mode.md).
+  - Incremental mode should only work for the "cards" data.
+  - Only the cards that have been updated after (this is seen as the value of "dateLastActivity") the time of the last successful sync should be once again pushed to the DevRev servers.
+  - Note: In incremental mode, you should filter the cards and push only the filtered cards to the DevRev servers.
+
+  ***Acceptance Tests:***
+
+  - Validate the incremental mode with the following flow:
+    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE".
+    - Then, perform request directly to The API to update the card with id "688725fd3e26ebcf364bff4a". More specifically, you should update name of this card to "Card50-{uuid}" using request `curl --request PUT --url 'https://api.trello.com/1/cards/688725fd3e26ebcf364bff4a?key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>&name="Card50-<uuid>"' --header 'Accept: application/json'` (replace <TRELLO_API_KEY>, <TRELLO_TOKEN> and <uuid> with the actual values).
+    - Then, invoke The Extraction Function using the same resource [data_extraction_test.json](test_data/data_extraction_test.json), but with payload.event_context.mode set to "INCREMENTAL". Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The "event_data" should contain an array "artifacts" where one of the elements has "item_type" equal to "cards" and "item_count" equal to 1, indicating only one card has been synced.
