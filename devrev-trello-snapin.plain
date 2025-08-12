@@ -89,17 +89,11 @@
 
 ***Functional Requirements:***
 
-- Implement The Function 'get_external_domain_metadata' that generates and returns The External Domain Metadata JSON object. The External Domain Metadata JSON object should have the record type 'users' (Name: Users).
-  - The record type 'users' should have two fields:
-    - full_name (Full Name, is required, text)
-    - username (Username, is required, text)
+- Implement The Function 'get_external_domain_metadata' that generates and returns The External Domain Metadata JSON object. The External Domain Metadata JSON object should have the record type 'users'.
+{% include "mappings/external_domain_metadata_users.plain" %}
 
-- The External Domain Metadata JSON object should include the record type 'users' and 'cards' (Name: Cards).
-  - The record type 'cards' should have the following fields:
-    - name (Name, is required, text)
-    - url (URL, is required, text)
-    - description (Description, is required, rich text)
-    - id_members (ID Members, is required, type: reference. Field id_members refers to the record type "#record:users". Type of field id_members is an array with max_length 50)
+- The External Domain Metadata JSON object should include the record type 'cards', while preserving any existing record types.
+{% include "mappings/external_domain_metadata_cards.plain" %}
 
 ### Generate 'initial_domain_mapping.json'
 
@@ -108,33 +102,10 @@
 ***Functional Requirements:***
 
 - Implement The Function that generates and returns The Initial Domain Mapping JSON object. The Initial Domain Mapping JSON object should have record_type_mappings "users".
-  - The record_type_mappings "users" should be the following:
-    - Set the default mapping so that each external user is mapped to a "devu" user object.
-    - There should be a single "possible_record_type_mappings" element, specifying:
-      - The mapping is one-way, e.g. reverse is false, forward is true
-      - There should be no custom fields in the mapping.
-      - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
-    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
-      - field "full_name" should be mapped to "full_name"
-      - field "username" should be mapped to "display_name"
+{% include "mappings/initial_domain_mapping_users.plain" %}
 
-- The Initial Domain Mapping JSON object should have record_type_mappings for "users" and "cards". 
-  - The record_type_mappings "cards" should be the following:
-    - Set the default mapping so that each external card is mapped to a "issue" object.
-    - There should be a single "possible_record_type_mappings" element, specifying:
-      - The mapping is one-way, e.g. reverse is false, forward is true
-      - There should be no custom fields in the mapping.
-      - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
-    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
-      - field "name" should be mapped to "title"
-      - field "url" should be mapped to "item_url_field"
-      - field "description" should be mapped to "body" (rich text)
-      - field "id_members" should be mapped to "owned_by_ids" (use directly)
-    - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
-      - field "priority" should contain fixed value "P2"
-      - field "stage" should contain fixed value "triage"
-    - The following The Stock Field Mapping Fields should be mapped using The DevRev Record Transformation Method:
-      - field "applies_to_part_id" should refer to the "product" object type
+- The Initial Domain Mapping JSON object should have record_type_mappings "cards", while preserving any existing mappings.
+{% include "mappings/initial_domain_mapping_cards.plain" %}
 
 ## Pushing data to DevRev servers
 
@@ -158,13 +129,7 @@
   - "attachments": 
     - "completed" (boolean, required, indicating if the attachments data has been pushed to the DevRev servers)
 
-- All operations accessing external services or data providers must be implemented in worker thread (The Worker Thread). The Worker Thread should be initialized with the method "spawn" (The Spawn Method). The Spawn Method should be initialized with the following parameters:
-  - The Extraction Function start The Worker Thread with timeout of 10 minutes.
-  - "isLocalDevelopment" *must not* be set.
-  - "initialState" should be The Extraction State Object with all "completed" fields set to false, and "before" and "modifiedSince" fields set to undefined.
-  - Use The Initial Domain Mapping JSON object for initialDomainMapping parameter when spawning a new worker.
-  - Note: The Initial Domain Mapping JSON object should be read directly from the JSON file.
-  - Note: No additional fields should be added to The Extraction State Object.
+{% include "templates/spawn_method_instructions.plain",  %}
 
 - The Trello Internal Client should be used to retrieve The Fetched Boards, The Fetched Users, The Fetched Cards and all other data from The API.
 
@@ -221,7 +186,7 @@
     - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID.
 {% include "templates/chef_cli_normalization_validation.plain", record_type: "users" %}
 
-- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push both the 'cards' data and the 'users' data. To push the 'cards' data, it should:
+- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' data, while preserving any existing pushes of the data. To push the 'cards' data, it should:
   - Fetch The Fetched Cards using pagination. If there's a "before" parameter in The Extraction State Object, use it to resume pagination from that point. Otherwise, start from the first page.
   - After every call to The API for fetching The Fetched Cards:
     - Update "before" parameter in The Extraction State Object to the ID of the first card in the current page of The Fetched Cards

@@ -206,6 +206,8 @@ paths:
         information.
       parameters:
         - id
+        - limit
+        - before
       responses:
         '200':
           description: Success
