@@ -1,0 +1,9 @@
+  - The record_type_mappings "users" should be the following:
+    - Set the default mapping so that each external user is mapped to a "devu" user object.
+    - There should be a single "possible_record_type_mappings" element, specifying:
+      - The mapping is one-way, e.g. reverse is false, forward is true
+      - There should be no custom fields in the mapping.
+      - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
+    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+      - field "full_name" should be mapped to "full_name"
+      - field "username" should be mapped to "display_name"
