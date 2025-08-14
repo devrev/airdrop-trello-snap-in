@@ -32,10 +32,11 @@
 
 - The Fetched Cards are The List of Cards that are fetched from The API.
 
+- The Fetched Attachments are The List of Attachments that are fetched from The API. One card from The Fetched Cards can have multiple attachments.
+
 ***Non-Functional Requirements:***
 
 - The Trello Internal Client is a TypeScript service that communicates with The API. These are the rules for The Trello Internal Client:
-  - The Trello Internal Client should be initialized with The Snap-In's event payload. 
   - If we need to create a new request to The API, we must create a new method in The Trello Internal Client.
   - Communication with The API must be completely abstracted away from The Function. The Function must be able to initialize The Trello Internal Client, call the relevant method from The Trello Internal Client and get the response from The API.
 
@@ -45,8 +46,9 @@
 
 - Credentials should be read from the environment. The following environment variables are required: `TRELLO_API_KEY` (The Trello API Key), `TRELLO_TOKEN` (The Trello OAuth Token), `TRELLO_ORGANIZATION_ID` (The Organization ID).
 
-- "external_sync_unit_id" "6752eb962a64828e59a35396" can be used when board ID is required for testing purposes.
+- "external_sync_unit_id" "688725dad59c015ce052eecf" can be used when board ID is required for testing purposes.
 
+- Card ID "688725fdf26b3c50430cae23" can be used when card ID is required for testing attachments.
 
 ## Data Fetching
 
@@ -80,6 +82,14 @@
   - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and no "before" parameter. Expect the number of The Fetched Cards to be 100.
 
   - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and "before" set to "688725fdf26b3c50430cae23". Expect the number of The Fetched Cards to be 50.
+
+- Implement The Function called "fetch_card_attachments" that uses The API to fetch The Fetched Attachments for a given card using the endpoint "/cards/{id}/attachments".
+  - the "card ID" should be provided in the "payload" dictionary.
+
+  ***Acceptance Tests:***
+
+  - Test The Function "fetch_card_attachments" with Card ID "688725fdf26b3c50430cae23". Expect the number of The Fetched Attachments to be 1. The value of field "name" of The Fetched Attachments should be "Result from test.com".
+
 
 ## Generate 'initial_domain_mapping.json' and 'external_domain_metadata.json'
 
