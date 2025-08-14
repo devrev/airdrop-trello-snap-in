@@ -1,248 +1,341 @@
-// Mock setup must come before imports
-jest.mock('@devrev/ts-adaas', () => {
-  const original = jest.requireActual('@devrev/ts-adaas');
-  const mockedSpawn = jest.fn().mockResolvedValue(undefined);
-  return {
-    ...original,
-    spawn: mockedSpawn,
-  };
-});
-  
-import { AirdropEvent, EventType } from '@devrev/ts-adaas';
-import { handler as extractionHandler } from './index';
+import { extraction } from './index';
+import { FunctionInput } from '../../core/types';
+import { spawn } from '@devrev/ts-adaas';
+import { EventType } from '@devrev/ts-adaas';
+import { convertToAirdropEvent } from '../../core/utils';
+import * as fs from 'fs';
+import { TrelloClient } from '../../core/trello_client';
+import * as path from 'path';
 
-import * as pushBoardsAsSyncUnitsModule from '../push_boards_as_sync_units';
-import * as extractionMetadataModule from '../extraction_metadata';
-import * as extractionUsersModule from '../extraction_users';
-import * as extractionCardsModule from '../extraction_cards';
-import * as extractionAttachmentsModule from '../extraction_attachments';
-// Get reference to the mocked spawn function
-const mockedSpawn = jest.mocked(require('@devrev/ts-adaas').spawn);
+// Mock the spawn function
+jest.mock('@devrev/ts-adaas', () => ({
+  spawn: jest.fn().mockResolvedValue(undefined),
+  processTask: jest.fn(),
+  NormalizedItem: {},
+  RepoInterface: {},
+  ExtractorState: {},
+  ExternalSyncUnit: {},
+  EventType: {
+    ExtractionExternalSyncUnitsStart: 'EXTRACTION_EXTERNAL_SYNC_UNITS_START',
+    ExtractionMetadataStart: 'EXTRACTION_METADATA_START',
+    ExtractionDataStart: 'EXTRACTION_DATA_START',
+    ExtractionDataContinue: 'EXTRACTION_DATA_CONTINUE',
+    ExtractionAttachmentsStart: 'EXTRACTION_ATTACHMENTS_START',
+    ExtractionAttachmentsContinue: 'EXTRACTION_ATTACHMENTS_CONTINUE',
+  },
+  ExtractorEventType: {
+    ExtractionExternalSyncUnitsDone: 'EXTRACTION_EXTERNAL_SYNC_UNITS_DONE',
+    ExtractionExternalSyncUnitsError: 'EXTRACTION_EXTERNAL_SYNC_UNITS_ERROR',
+  },
+}));
 
-// Create spies on the imported handlers
-const pushBoardsAsSyncUnitsSpy = jest.spyOn(pushBoardsAsSyncUnitsModule, 'handler');
-const extractionMetadataSpy = jest.spyOn(extractionMetadataModule, 'handler');
-const extractionUsersSpy = jest.spyOn(extractionUsersModule, 'handler');
-const extractionCardsSpy = jest.spyOn(extractionCardsModule, 'handler');
-const extractionAttachmentsSpy = jest.spyOn(extractionAttachmentsModule, 'handler');
+// Mock the TrelloClient
+jest.mock('../../core/trello_client');
+
+
+// Mock the normalizers
+jest.mock('./normalizers', () => ({
+  normalizeUser: jest.fn(),
+  normalizeCard: jest.fn(),
+}));
+
+// Mock the convertToAirdropEvent function
+jest.mock('../../core/utils', () => ({
+  convertToAirdropEvent: jest.fn().mockImplementation((input) => ({
+    context: input.context,
+    payload: {
+      ...input.payload,
+      event_type: input.payload.event_type || 'EXTRACTION_EXTERNAL_SYNC_UNITS_START',
+    },
+    execution_metadata: input.execution_metadata,
+    input_data: input.input_data,
+  })),
+}));
+
+// Mock fs and path
+jest.mock('fs');
+jest.mock('path');
 
 describe('extraction function', () => {
-  // Create a properly structured mock AirdropEvent
-  const createMockEvent = (eventType: EventType): AirdropEvent => ({
+  // Mock function input
+  const mockFunctionInput: FunctionInput = {
+    payload: {
+      event_type: 'EXTRACTION_EXTERNAL_SYNC_UNITS_START',
+      event_context: {},
+      connection_data: {},
+    },
     context: {
+      dev_oid: 'test-dev-oid',
+      source_id: 'test-source-id',
+      snap_in_id: 'test-snap-in-id',
+      snap_in_version_id: 'test-snap-in-version-id',
+      service_account_id: 'test-service-account-id',
       secrets: {
-        service_account_token: 'mock-token',
-      },
-      snap_in_version_id: 'mock-version-id',
-      snap_in_id: 'mock-snap-in-id',
-    } as any,
+        service_account_token: 'test-token'
+      }
+    },
     execution_metadata: {
-      devrev_endpoint: 'https://mock-endpoint.devrev.ai'
+      request_id: 'test-request-id',
+      function_name: 'extraction',
+      event_type: 'test-event-type',
+      devrev_endpoint: 'https://api.devrev.ai/'
     },
     input_data: {
       global_values: {},
-      event_sources: {},
-    },
-    payload: {
-      connection_data: {
-        org_id: 'mock-org-id',
-        org_name: 'mock-org-name',
-        key: 'mock-key',
-        key_type: 'mock-key-type',
-      },
-      event_context: {
-        callback_url: 'https://mock-callback-url',
-        dev_org: 'mock-dev-org',
-        dev_org_id: 'mock-dev-org-id',
-        dev_user: 'mock-dev-user',
-        dev_user_id: 'mock-dev-user-id',
-        external_sync_unit: 'mock-external-sync-unit',
-        external_sync_unit_id: 'mock-external-sync-unit-id',
-        external_sync_unit_name: 'mock-external-sync-unit-name',
-        external_system: 'mock-external-system',
-        external_system_type: 'mock-external-system-type',
-        import_slug: 'mock-import-slug',
-        mode: 'INITIAL',
-        request_id: 'mock-request-id',
-        snap_in_slug: 'mock-snap-in-slug',
-        snap_in_version_id: 'mock-snap-in-version-id',
-        uuid: 'mock-uuid',
-        worker_data_url: 'mock-worker-data-url',
-      },
-      event_type: eventType,
-    } as any,
-  });
+      event_sources: {}
+    }
+  };
 
   beforeEach(() => {
-    // Reset all mocks before each test
-    jest.resetAllMocks();
-
-    // Set up default mock implementations
-    pushBoardsAsSyncUnitsSpy.mockResolvedValue({
-      success: true,
-      message: 'Successfully pushed boards as external sync units'
-    });
-
-    extractionMetadataSpy.mockResolvedValue({
-      success: true,
-      message: 'Metadata extraction completed successfully'
-    });
-
-    extractionUsersSpy.mockResolvedValue({
-      success: true,
-      message: 'Users extraction completed successfully'
-    });
-
-    extractionCardsSpy.mockResolvedValue({
-      success: true,
-      message: 'Cards extraction completed successfully'
-    });
-
-    extractionAttachmentsSpy.mockResolvedValue({ 
-      success: true, 
-      message: 'Attachments extraction completed successfully'
-    });
-    mockedSpawn.mockClear();
-  });
-
-  it('should call pushBoardsAsSyncUnits for ExtractionExternalSyncUnitsStart event', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionExternalSyncUnitsStart);
-
-    const result = await extractionHandler([mockEvent]);
-
-    expect(pushBoardsAsSyncUnitsSpy).toHaveBeenCalledWith([mockEvent]);
-    expect(result).toEqual({
-      success: true,
-      message: 'Successfully pushed boards as external sync units'
-    });
-  });
-
-  it('should call extractionMetadata for ExtractionMetadataStart event', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionMetadataStart);
-
-    const result = await extractionHandler([mockEvent]);
-
-    expect(extractionMetadataSpy).toHaveBeenCalledWith([mockEvent]);
-    expect(result).toEqual({
-      success: true,
-      message: 'Metadata extraction completed successfully'
-    });
-  });
-
-  it('should spawn a worker for ExtractionDataStart event', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionDataStart);
+    jest.clearAllMocks();
     
-    // Mock successful spawn execution
-    mockedSpawn.mockResolvedValue(undefined);
+    // Mock path.resolve to return a fixed path
+    (path.resolve as jest.Mock).mockReturnValue('/mock/path/to/initial_domain_mapping.json');
+    
+    // Mock fs.readFileSync to return mock mapping
+    (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify({mock: "mapping"}));
+    
+    // Mock TrelloClient methods
+    (TrelloClient as jest.Mock).mockImplementation(() => ({
+      getBoards: jest.fn().mockResolvedValue([])
+    }));
+  });
 
-    const result = await extractionHandler([mockEvent]);
+  it('should process the external sync units extraction event', async () => {
+    // Arrange
+    const events = [mockFunctionInput];
+    const consoleSpy = jest.spyOn(console, 'log');
 
-    // Verify spawn was called with the correct parameters
-    expect(mockedSpawn).toHaveBeenCalledWith(expect.objectContaining({
-      event: mockEvent,
-      initialState: expect.objectContaining({
-        users: { completed: false },
-        cards: { completed: false }
-      }),
-      options: expect.any(Object),
-      initialDomainMapping: expect.any(Object)
+    // Act
+    const result = await extraction(events);
+
+    // Assert
+    expect(result).toEqual({
+      status: 'success',
+      message: 'External sync units extraction completed successfully'
+    });
+    expect(consoleSpy).toHaveBeenCalledWith('Extraction function invoked with request ID: test-request-id');
+    expect(consoleSpy).toHaveBeenCalledWith('Processing external sync units extraction event');
+    expect(convertToAirdropEvent).toHaveBeenCalledWith(mockFunctionInput);
+    expect(spawn).toHaveBeenCalled();
+    expect(spawn).toHaveBeenCalledWith(expect.objectContaining({
+      initialState: {},
+      initialDomainMapping: {mock: "mapping"},
+    }));
+  });
+
+  it('should throw an error when no events are provided', async () => {
+    // Arrange
+    const events: FunctionInput[] = [];
+    const consoleErrorSpy = jest.spyOn(console, 'error');
+
+    // Act & Assert
+    await expect(extraction(events)).rejects.toThrow('No events provided to the function');
+    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('should handle unsupported event types gracefully', async () => {
+    // Arrange
+    const unsupportedEvent = {
+      ...mockFunctionInput,
+      payload: {
+        ...mockFunctionInput.payload,
+        event_type: 'SOME_OTHER_EVENT_TYPE',
+      },
+    };
+    
+    // Mock the convertToAirdropEvent to return the different event type
+    (convertToAirdropEvent as jest.Mock).mockImplementationOnce((input) => ({
+      context: input.context,
+      payload: {
+        ...input.payload,
+        event_type: 'SOME_OTHER_EVENT_TYPE',
+      },
+      execution_metadata: input.execution_metadata,
+      input_data: input.input_data,
     }));
     
+    const events = [unsupportedEvent];
+    const consoleSpy = jest.spyOn(console, 'log');
+
+    // Act
+    const result = await extraction(events);
+
+    // Assert
     expect(result).toEqual({
-      success: true,
+      status: 'success',
+      message: 'Function executed, but the event type SOME_OTHER_EVENT_TYPE is not supported yet'
+    });
+    expect(consoleSpy).toHaveBeenCalledWith('Received unsupported event type: SOME_OTHER_EVENT_TYPE');
+    expect(spawn).not.toHaveBeenCalled();
+  });
+  
+  it('should process the metadata extraction event', async () => {
+    // Arrange
+    const metadataEvent = {
+      ...mockFunctionInput,
+      payload: {
+        ...mockFunctionInput.payload,
+        event_type: 'EXTRACTION_METADATA_START',
+      },
+    };
+    
+    // Mock the convertToAirdropEvent to return the metadata event type
+    (convertToAirdropEvent as jest.Mock).mockImplementationOnce((input) => ({
+      context: input.context,
+      payload: {
+        ...input.payload,
+        event_type: 'EXTRACTION_METADATA_START',
+      },
+      execution_metadata: input.execution_metadata,
+      input_data: input.input_data,
+    }));
+    
+    const events = [metadataEvent];
+    const consoleSpy = jest.spyOn(console, 'log');
+
+    // Act
+    const result = await extraction(events);
+
+    // Assert
+    expect(result).toEqual({
+      status: 'success',
+      message: 'Metadata extraction completed successfully'
+    });
+    expect(consoleSpy).toHaveBeenCalledWith('Extraction function invoked with request ID: test-request-id');
+    expect(consoleSpy).toHaveBeenCalledWith('Processing metadata extraction event');
+    expect(convertToAirdropEvent).toHaveBeenCalledWith(metadataEvent);
+    expect(spawn).toHaveBeenCalled();
+  });
+  
+  it('should process the data extraction start event', async () => {
+    // Arrange
+    const dataEvent = {
+      ...mockFunctionInput,
+      payload: {
+        ...mockFunctionInput.payload,
+        event_type: 'EXTRACTION_DATA_START',
+      },
+    };
+    
+    // Mock the convertToAirdropEvent to return the data event type
+    (convertToAirdropEvent as jest.Mock).mockImplementationOnce((input) => ({
+      context: input.context,
+      payload: {
+        ...input.payload,
+        event_type: 'EXTRACTION_DATA_START',
+      },
+      execution_metadata: input.execution_metadata,
+      input_data: input.input_data,
+    }));
+    
+    const events = [dataEvent];
+    const consoleSpy = jest.spyOn(console, 'log');
+
+    // Act
+    const result = await extraction(events);
+
+    // Assert
+    expect(result).toEqual({
+      status: 'success',
       message: 'Data extraction completed successfully'
     });
+    expect(consoleSpy).toHaveBeenCalledWith('Extraction function invoked with request ID: test-request-id');
+    expect(consoleSpy).toHaveBeenCalledWith('Processing data extraction event');
+    expect(convertToAirdropEvent).toHaveBeenCalledWith(dataEvent);
+    expect(spawn).toHaveBeenCalled();
+    expect(spawn).toHaveBeenCalledWith(expect.objectContaining({
+      initialState: {
+        users: { completed: false },
+        cards: { completed: false },
+        attachments: { completed: false }
+      }
+    }));
   });
   
-  it('should handle errors from extraction functions', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionExternalSyncUnitsStart);
+  it('should process the data extraction continue event', async () => {
+    // Arrange
+    const dataContinueEvent = {
+      ...mockFunctionInput,
+      payload: {
+        ...mockFunctionInput.payload,
+        event_type: 'EXTRACTION_DATA_CONTINUE',
+      },
+    };
     
-    // Mock pushBoardsAsSyncUnits to return a failure response
-    pushBoardsAsSyncUnitsSpy.mockResolvedValue({
-      success: false,
-      message: 'Users extraction failed'
-    });
+    // Mock the convertToAirdropEvent to return the data continue event type
+    (convertToAirdropEvent as jest.Mock).mockImplementationOnce((input) => ({
+      context: input.context,
+      payload: {
+        ...input.payload,
+        event_type: 'EXTRACTION_DATA_CONTINUE',
+      },
+      execution_metadata: input.execution_metadata,
+      input_data: input.input_data,
+    }));
     
-    const result = await extractionHandler([mockEvent]);
-    
-    expect(pushBoardsAsSyncUnitsSpy).toHaveBeenCalledWith([mockEvent]);
+    const events = [dataContinueEvent];
+    const consoleSpy = jest.spyOn(console, 'log');
+
+    // Act
+    const result = await extraction(events);
+
+    // Assert
     expect(result).toEqual({
-      success: false,
-      message: 'Users extraction failed'
+      status: 'success',
+      message: 'Data extraction completed successfully'
     });
-  });
-
-  it('should call extractionAttachments for ExtractionAttachmentsStart event', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionAttachmentsStart);
-
-    const result = await extractionHandler([mockEvent]);
-
-    expect(extractionAttachmentsSpy).toHaveBeenCalledWith([mockEvent]);
-    expect(result).toEqual({
-      success: true,
-      message: 'Attachments extraction completed successfully'
-    });
-  });
-
-  it('should call extractionAttachments for ExtractionAttachmentsContinue event', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionAttachmentsContinue);
-
-    const result = await extractionHandler([mockEvent]);
-
-    expect(extractionAttachmentsSpy).toHaveBeenCalledWith([mockEvent]);
-    expect(result).toEqual({
-      success: true,
-      message: 'Attachments extraction completed successfully'
-    });
-  });
-
-  it('should return error for unsupported event types', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionDataDelete as any);
-
-    const result = await extractionHandler([mockEvent]);
-
-    expect(result).toEqual({
-      success: false,
-      message: `Unsupported event type: ${EventType.ExtractionDataDelete}`
-    });
-  });
-
-  it('should throw error when no events are provided', async () => {
-    // Call the handler function with an empty array
-    const result = await extractionHandler([]);
-
-    // Verify the result is a structured error response instead of throwing
-    expect(result).toEqual({
-      success: false,
-      message: 'Error in extraction function: No events provided',
-      details: new Error('No events provided')
-    });
-  });
-
-  it('should handle errors from extraction functions', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionExternalSyncUnitsStart);
-
-    // Mock pushBoardsAsSyncUnits to throw an error
-    pushBoardsAsSyncUnitsSpy.mockRejectedValue(new Error('Test error'));
-
-    const result = await extractionHandler([mockEvent]);
-
-    expect(result).toEqual({ success: false, message: 'Error in extraction function: Test error', details: new Error('Test error') });
+    expect(consoleSpy).toHaveBeenCalledWith('Extraction function invoked with request ID: test-request-id');
+    expect(consoleSpy).toHaveBeenCalledWith('Processing data extraction event');
+    expect(convertToAirdropEvent).toHaveBeenCalledWith(dataContinueEvent);
+    expect(spawn).toHaveBeenCalled();
+    expect(spawn).toHaveBeenCalledWith(expect.objectContaining({
+      initialState: {
+        users: { completed: false },
+        cards: { completed: false },
+        attachments: { completed: false }
+      }
+    }));
   });
   
-  it('should handle errors when spawn throws an error', async () => {
-    const mockEvent = createMockEvent(EventType.ExtractionDataStart);
+  it('should process the attachments extraction start event', async () => {
+    // Arrange
+    const attachmentsEvent = {
+      ...mockFunctionInput,
+      payload: {
+        ...mockFunctionInput.payload,
+        event_type: 'EXTRACTION_ATTACHMENTS_START',
+      },
+    };
     
-    // Mock spawn to throw an error
-    const testError = new Error('Test spawn error');
-    mockedSpawn.mockRejectedValueOnce(testError);
+    // Mock the convertToAirdropEvent to return the attachments event type
+    (convertToAirdropEvent as jest.Mock).mockImplementationOnce((input) => ({
+      context: input.context,
+      payload: {
+        ...input.payload,
+        event_type: 'EXTRACTION_ATTACHMENTS_START',
+      },
+      execution_metadata: input.execution_metadata,
+      input_data: input.input_data,
+    }));
     
-    const result = await extractionHandler([mockEvent]);
-    
+    const events = [attachmentsEvent];
+    const consoleSpy = jest.spyOn(console, 'log');
+
+    // Act
+    const result = await extraction(events);
+
+    // Assert
     expect(result).toEqual({
-      success: false,
-      message: 'Error during data extraction: Test spawn error',
-      details: testError
+      status: 'success',
+      message: 'Attachments extraction completed successfully'
     });
+    expect(consoleSpy).toHaveBeenCalledWith('Extraction function invoked with request ID: test-request-id');
+    expect(consoleSpy).toHaveBeenCalledWith('Processing attachments extraction event');
+    expect(convertToAirdropEvent).toHaveBeenCalledWith(attachmentsEvent);
+    expect(spawn).toHaveBeenCalled();
+    expect(spawn).toHaveBeenCalledWith(expect.objectContaining({
+      initialState: expect.objectContaining({ attachments: { completed: false } })
+    }));
   });
 });

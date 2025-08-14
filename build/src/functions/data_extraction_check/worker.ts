@@ -1,83 +1,118 @@
-import { ExtractorEventType, processTask } from '@devrev/ts-adaas';
+import { processTask, ExtractorEventType, NormalizedItem, RepoInterface } from '@devrev/ts-adaas';
 
-/**
- * State interface for the data extraction process
- */
-interface DataExtractionState {
-  completed: boolean;
-  error?: string;
-}
+// Define the state type for this worker
+type ExtractorState = {
+  users: {
+    completed: boolean;
+  };
+};
 
-/**
- * Worker file for handling data extraction
- */
-processTask<DataExtractionState>({
+// Sample user data
+const sampleUsers = [
+  {
+    id: 'user1',
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    created_at: '2023-01-15T10:30:00Z',
+    updated_at: '2023-05-20T14:45:00Z',
+    role: 'admin'
+  },
+  {
+    id: 'user2',
+    name: 'Jane Smith',
+    email: 'jane.smith@example.com',
+    created_at: '2023-02-10T09:15:00Z',
+    updated_at: '2023-06-05T11:20:00Z',
+    role: 'user'
+  },
+  {
+    id: 'user3',
+    name: 'Bob Johnson',
+    email: 'bob.johnson@example.com',
+    created_at: '2023-03-22T16:40:00Z',
+    updated_at: '2023-07-12T08:30:00Z',
+    role: 'user'
+  }
+];
+
+// Normalization function for users
+const normalizeUser = (user: any): NormalizedItem => {
+  return {
+    id: user.id,
+    created_date: user.created_at,
+    modified_date: user.updated_at,
+    data: {
+      name: user.name,
+      email: user.email,
+      role: user.role
+    }
+  };
+};
+
+// Process the data extraction task
+processTask<ExtractorState>({
   task: async ({ adapter }) => {
-    try {
-      console.log('Starting data extraction test');
-      
-      // Initialize sample repositories for testing
-      const repos = [
-        {
-          itemType: 'test_items',
-          normalize: (item: any) => ({
-            id: item.id,
-            created_date: item.created_at,
-            modified_date: item.updated_at,
-            data: item
-          })
-        }
-      ];
-      
-      adapter.initializeRepos(repos);
-      
-      // Create sample test items
-      const testItems = Array.from({ length: 10 }, (_, i) => ({
-        id: `test-item-${i}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        name: `Test Item ${i}`,
-        description: `This is test item ${i}`,
-        status: 'active'
-      }));
-      
-      // Push items to the repository
-      await adapter.getRepo('test_items')?.push(testItems);
-      
-      // Update state to indicate completion
-      adapter.state.completed = true;
-      
-      // Emit the data extraction done event
+    console.log('Worker file loaded successfully');
+    console.log('Processing data extraction task');
+
+    // Initialize users state if it doesn't exist
+    if (!adapter.state.users) {
+      adapter.state = {
+        ...adapter.state,
+        users: { completed: false }
+      };
+    }
+    if (adapter.state.users.completed) {
+      console.log('Users already processed, skipping');
       await adapter.emit(ExtractorEventType.ExtractionDataDone);
-      
-      console.log('Data extraction test completed successfully');
+      return;
+    }
+
+    // Define the repository for users
+    const repos: RepoInterface[] = [
+      {
+        itemType: 'users',
+        normalize: normalizeUser,
+      }
+    ];
+
+    // Initialize the repositories
+    adapter.initializeRepos(repos);
+
+    try {
+      // Push the sample users to the repository
+      const usersRepo = adapter.getRepo('users');
+      if (usersRepo) {
+        await usersRepo.push(sampleUsers);
+        console.log('Successfully pushed users data');
+        
+        // Update state to mark users as completed
+        adapter.state = {
+          ...adapter.state,
+          users: { completed: true }
+        };
+        
+        // Emit the EXTRACTION_DATA_DONE event
+        await adapter.emit(ExtractorEventType.ExtractionDataDone);
+        console.log('Data extraction task completed successfully');
+      } else {
+        throw new Error('Users repository not found');
+      }
     } catch (error) {
-      console.error('Error in data extraction test:', error);
-      
-      // Update state to indicate error
-      adapter.state.completed = false;
-      adapter.state.error = error instanceof Error ? error.message : 'Unknown error';
-      
+      console.error('Error during data extraction:', error);
       // Emit error event
       await adapter.emit(ExtractorEventType.ExtractionDataError, {
-        error: {
+        error: { 
           message: error instanceof Error ? error.message : 'Unknown error during data extraction',
         },
       });
     }
   },
   onTimeout: async ({ adapter }) => {
-    console.error('Data extraction test timed out');
-    
-    // Update state to indicate timeout
-    adapter.state.completed = false;
-    adapter.state.error = 'Data extraction test timed out';
-    
-    // Emit error event on timeout
-    await adapter.emit(ExtractorEventType.ExtractionDataError, {
-      error: {
-        message: 'Data extraction test timed out',
-      },
+    // Handle timeout by emitting a progress event
+    await adapter.emit(ExtractorEventType.ExtractionDataProgress, {
+      progress: 50, // Estimate of progress percentage
     });
+    console.log('Data extraction task timed out, emitting progress event');
   },
 });

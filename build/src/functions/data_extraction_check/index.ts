@@ -1,110 +1,72 @@
-import { AirdropEvent, EventType, spawn } from '@devrev/ts-adaas';
-import path from 'path';
-import fs from 'fs';
-import { resolveWorkerPath } from '../../core/worker-utils';
-import { loadInitialDomainMapping } from '../../core/domain-mapping-utils';
+import { spawn } from '@devrev/ts-adaas';
+import { EventType } from '@devrev/ts-adaas';
+import { convertToAirdropEvent } from '../../core/utils';
+import { FunctionInput } from '../../core/types';
 
 /**
- * State interface for the data extraction process
- */
-interface DataExtractionState {
-  completed: boolean;
-  error?: string;
-}
-
-/**
- * Function that tests the data extraction workflow.
+ * Test function for data extraction workflow.
+ * This function handles the EXTRACTION_DATA_START event and
+ * demonstrates how to extract and normalize user data.
  * 
- * @param events - Array of AirdropEvent objects
- * @returns Object indicating if data extraction works
+ * @param events Array of function input events
+ * @returns A success message indicating the extraction was successful
  */
-export const handler = async (events: AirdropEvent[]): Promise<{ success: boolean; message: string; details?: any }> => {
+export async function data_extraction_check(events: FunctionInput[]): Promise<{ status: string, message: string }> {
   try {
-    if (!events || events.length === 0) {
-      throw new Error('No events provided');
+    // Only process the first event as per requirements
+    if (events.length === 0) {
+      throw new Error('No events provided to the function');
     }
 
     const event = events[0];
-    
-    // Check if the event is related to data extraction
-    if (event.payload.event_type !== EventType.ExtractionDataStart) {
+    const requestId = event.execution_metadata?.request_id || 'unknown';
+    console.log(`Data extraction check function invoked with request ID: ${requestId}`);
+
+    // Convert to AirdropEvent format
+    const airdropEvent = convertToAirdropEvent(event);
+
+    // Check if the event type is correct
+    if (airdropEvent.payload.event_type !== EventType.ExtractionDataStart && 
+        airdropEvent.payload.event_type !== EventType.ExtractionDataContinue) {
+      console.log(`Received event type: ${airdropEvent.payload.event_type}, expected: ${EventType.ExtractionDataStart} or ${EventType.ExtractionDataContinue}`);
       return {
-        success: false,
-        message: `Event type ${event.payload.event_type} is not a data extraction event`
+        status: 'success',
+        message: 'Function executed, but the event type was not EXTRACTION_DATA_START or EXTRACTION_DATA_CONTINUE'
       };
     }
-
-    // Check if necessary context is available
-    if (!event.context?.secrets?.service_account_token) {
-      return {
-        success: false,
-        message: 'Missing service account token in event context'
-      };
-    }
-
-    if (!event.execution_metadata?.devrev_endpoint) {
-      return {
-        success: false,
-        message: 'Missing DevRev endpoint in execution metadata'
-      };
-    }
-
-    // Check if event context contains necessary data
-    const eventContext = event.payload.event_context;
-    if (!eventContext) {
-      return {
-        success: false,
-        message: 'Missing event context in payload'
-      };
-    }
-
-    // Initial state for the extraction process
-    const initialState: DataExtractionState = {
-      completed: false
-    };
 
     try {
-      // Resolve the worker path using the utility function
-      const workerPath = resolveWorkerPath(__dirname, 'worker');
+      // Use require.resolve to find the worker file relative to this module
+      const workerPath = require.resolve('./worker');
       
-      // Load the initial domain mapping
-      const initialDomainMapping = loadInitialDomainMapping();
+      // Initial state for the worker
+      const initialState = {
+        users: { completed: false }
+      };
       
-      // Check if the worker file exists
-      if (!fs.existsSync(workerPath)) {
-        return {
-          success: false,
-          message: `Worker file not found at path: ${workerPath}`
-        };
-      }
-      
-      // Spawn a worker to handle the extraction
+      // Create a worker to handle the event
       await spawn({
-        event,
-        initialState,
-        workerPath,
-        options: {
-          isLocalDevelopment: process.env.NODE_ENV === 'development',
-          timeout: 5 * 60 * 1000, // 5 minutes timeout
-          batchSize: 100 // Smaller batch size for testing
-        },
-        initialDomainMapping
+        event: airdropEvent,
+        initialState: initialState,
+        workerPath: workerPath,
       });
-
-      return {
-        success: true,
-        message: 'Data extraction workflow completed successfully'
-      };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return {
-        success: false,
-        message: `Error during data extraction: ${errorMessage}`,
-        details: error
-      };
+      console.error('Error in data extraction process:', error);
+      // Properly handle the unknown error type
+      if (error instanceof Error) {
+        throw new Error(`Failed to process data extraction: ${error.message}`);
+      } else {
+        throw new Error(`Failed to process data extraction: ${String(error)}`);
+      }
     }
+
+    return {
+      status: 'success',
+      message: 'Data extraction check completed successfully'
+    };
   } catch (error) {
+    // Log the error with detailed information for debugging
     console.error('Error in data_extraction_check function:', error);
     throw error;
   }
-};
+}
