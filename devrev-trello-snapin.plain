@@ -147,11 +147,13 @@
 
 - The Extraction Function should not stringify error messages. If an error is thrown, it should be logged before throwing it.
 
+- When listing The Fetched Cards, you should always set the parameter "limit" to 100 (The Pagination Limit) when calling The API.
+
 - The Fetched Cards should be retrieved in full with pagination (with "limit" and "before" parameters). This includes making multiple requests to The API.
-  - Initial request: limit=100, propagate the "before" parameter from The Extraction State Object only if it exists.
-  - If response < 100 cards: complete
-  - If response = 100 cards: make next request with limit=100, before=first_card_id, where "first_card_id" is field "id" of the first card in the response.
-  - Repeat previous step until response < 100 cards
+  - Initial request: limit=The Pagination Limit, propagate the "before" parameter from The Extraction State Object only if it exists.
+  - If response < The Pagination Limit cards: complete
+  - If response = The Pagination Limit cards: make next request with limit=The Pagination Limit, before=first_card_id, where "first_card_id" is field "id" of the first card in the response.
+  - Repeat previous step until response < The Pagination Limit cards
 
 - To retrieve "created_date" from The API and convert it in The Normalization Function, keep in mind that the first 8 characters represent a Unix timestamp in hexadecimal format. To retrieve the "created_date" from The API:
   - Take the first 8 characters of the ID
