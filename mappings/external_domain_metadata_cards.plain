@@ -1,5 +1,7 @@
   - The record type 'cards' (Name: Cards) should have the following fields:
-    - name (Name, is required, text)
-    - url (URL, is required, text)
-    - description (Description, is required, rich text)
-    - id_members (ID Members, is required, type: reference. Field id_members refers to the record type "#record:users". Type of field id_members is an array with max_length 50)
+    - name (display name: "Name", is required, type: text)
+    - url (display name: "URL", is required, type: text)
+    - description (display name: "Description", is required, type: rich text)
+    - id_members (display name: "ID Members", is required, type: reference)
+      - Field id_members refers to the record type "#record:users".
+      - Type of field id_members is an array with max_length 50.

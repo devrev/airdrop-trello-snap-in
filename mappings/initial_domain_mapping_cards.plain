@@ -1,9 +1,8 @@
-  - The record_type_mappings "cards" should be the following:
-    - Set the default mapping so that each external card is mapped to a "issue" object.
+  - The record_type_mappings "cards" should have the following properties:
+    - Default mapping should map each external card to a "issue" object.
     - There should be a single "possible_record_type_mappings" element, specifying:
-      - The mapping is one-way, e.g. reverse is false, forward is true
+      - The mapping is one-way (reverse is false, forward is true)
       - There should be no custom fields in the mapping.
-      - A new recipe blueprint shard should be created for the mapping, rather than using an existing one.
     - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
       - field "name" should be mapped to "title"
       - field "url" should be mapped to "item_url_field"
