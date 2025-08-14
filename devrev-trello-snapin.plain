@@ -129,6 +129,8 @@
 
 ***Non-Functional Requirements:***
 
+- The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API. The Normalization Function should take the relevant record type from The External Domain Metadata JSON object and map all resources from The API to the corresponding record type in The Normalization Function.
+
 - The Extraction State Object is a state passed to The Worker Thread. We should use the following structure for The Extraction State Object:
   - "users":
     - "completed" (boolean, required, indicating if the users data has been pushed to the DevRev servers)
@@ -186,9 +188,11 @@
 - If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. Please note that The External Domain Metadata JSON object shouldn't be normalized when pushed to the repository.
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'users' data. To push the 'users' data, it should:
+  - If The Extraction State Object indicates that the users data has been fully pushed to the DevRev servers, skip the 'users' data extraction.
   - Retrieve The Fetched Users
-  - push The Fetched Users to the repository designated for 'users' data.
-  - Update The Extraction State Object to indicate that the users data has been pushed to the DevRev servers
+  - Push The Fetched Users to the repository designated for 'users' data.
+  - Update The Extraction State Object to indicate that the users data has been fully pushed to the DevRev servers
+  - Refer to the resource [data-extraction-rules-from-emitting-events.md](docs/data-extraction-rules-from-emitting-events.md) for the rules for emitting events from the snap-in.
 
   ***Acceptance Tests:***
   
@@ -198,12 +202,14 @@
     - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID.
 {% include "templates/chef_cli_normalization_validation.plain", record_type: "users" %}
 
-- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' data, while preserving any existing pushes of the data. To push the 'cards' data, it should:
+- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' and 'users' data. To push the 'cards' data, it should:
+  - If The Extraction State Object indicates that the cards data has been fully pushed to the DevRev servers, skip the 'cards' data extraction (Note: If The Extraction State Object indicates that the 'users' data has been fully pushed to the DevRev servers, but the 'cards' data has not, you should still do the extraction of the 'cards' data. Vice versa also applies).
   - Fetch The Fetched Cards using pagination. If there's a "before" parameter in The Extraction State Object, use it to resume pagination from that point. Otherwise, start from the first page.
   - After every call to The API for fetching The Fetched Cards:
     - Update "before" parameter in The Extraction State Object to the ID of the first card in the current page of The Fetched Cards
     - Push The Fetched Cards from the current page to the repository designated for 'cards' data.
   - Extraction of The Fetch Cards is successful only after all pages have been processed. After success, update The Extraction State Object to indicate that the cards data has been fully pushed to the DevRev servers.
+  - Refer to the resource [data-extraction-rules-from-emitting-events.md](docs/data-extraction-rules-from-emitting-events.md) for the rules for emitting events from the snap-in.
 
   ***Acceptance Tests:***
 
@@ -219,8 +225,10 @@
 
 - If "event_type" equals "EXTRACTION_DATA_START", The Extraction Function should support incremental data synchronization as described in the resource [incremental_mode.md](docs/incremental_mode.md).
   - Incremental mode should only work for the "cards" data.
+  - If we're in incremental mode, set The Extraction State Object to indicate that the cards data has not been fully pushed to the DevRev servers.
   - Only the cards that have been updated after (this is seen as the value of "dateLastActivity") the time of the last successful sync should be once again pushed to the DevRev servers.
   - Note: In incremental mode, you should filter the cards and push only the filtered cards to the DevRev servers.
+  - Refer to the resource [data-extraction-rules-from-emitting-events.md](docs/data-extraction-rules-from-emitting-events.md) for the rules for emitting events from the snap-in.
 
   ***Acceptance Tests:***
 
