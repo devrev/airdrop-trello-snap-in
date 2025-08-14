@@ -6,7 +6,7 @@
       },
       "event_context": {
         "callback_url": "http://localhost:8002/callback",
-        "external_sync_unit_id": "6752eb962a64828e59a35396"
+        "external_sync_unit_id": "6752eb95c833e6b206fcf388"
       }
     },
     "context": {
