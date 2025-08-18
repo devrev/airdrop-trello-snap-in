@@ -3,4 +3,3 @@ template-dir: ../airdrop-shared
 unittests-script: ../airdrop-shared/run_unittests_jest.sh
 conformance-tests-script: ../airdrop-shared/run_devrev_snapin_conformance_tests.sh
 verbose: true # verbose flag, defaults to false if not set
-debug: true # debug flag, defaults to false if not set

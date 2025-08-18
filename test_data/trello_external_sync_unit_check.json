@@ -1,6 +1,6 @@
 {
     "execution_metadata": {
-        "function_name": "push_boards_as_sync_units",
+        "function_name": "extraction",
         "devrev_endpoint": "http://localhost:8003"
     },
     "payload": {

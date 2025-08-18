@@ -1,0 +1,15 @@
+  - The record_type_mappings "cards" should have the following properties:
+    - Default mapping should map each external card to a "issue" object.
+    - There should be a single "possible_record_type_mappings" element, specifying:
+      - The mapping is one-way (reverse is false, forward is true)
+      - There should be no custom fields in the mapping.
+    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+      - field "name" should be mapped to "title"
+      - field "url" should be mapped to "item_url_field"
+      - field "description" should be mapped to "body" (rich text)
+      - field "id_members" should be mapped to "owned_by_ids" (use directly)
+    - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
+      - field "priority" should contain fixed value "P2"
+      - field "stage" should contain fixed value "triage"
+    - The following The Stock Field Mapping Fields should be mapped using The DevRev Record Transformation Method:
+      - field "applies_to_part_id" should refer to the "product" object type
