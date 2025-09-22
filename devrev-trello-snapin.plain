@@ -34,6 +34,8 @@
 
 - The Fetched Attachments are The List of Attachments that are fetched from The API. One card from The Fetched Cards can have multiple attachments.
 
+- The API Base URL of The API is provided in the environment variable `TRELLO_BASE_URL`.
+
 ***Non-Functional Requirements:***
 
 - The Trello Internal Client is a TypeScript service that communicates with The API. These are the rules for The Trello Internal Client:
@@ -42,15 +44,33 @@
 
 - The API key and token are provided in the "key" field of the "connection_data" dictionary which is part of "payload" dictionary. The "key" field has the following internal format: "key=<api_key>&token=<token>"
 
+- Managing (overriding) environment variables in The Conformance Tests cannot be done and need not be tested.
+
 ***Test Requirements:***
 
 - Credentials should be read from the environment. The following environment variables are required: `TRELLO_API_KEY` (The Trello API Key), `TRELLO_TOKEN` (The Trello OAuth Token), `TRELLO_ORGANIZATION_ID` (The Organization ID).
 
+- When generating The Acceptance Test with The Attached JSON Of The Acceptance Test, The Conformance Tests *MUST*:
+  - Replace `TRELLO_API_KEY` placeholder in The Attached JSON Of The Acceptance Test with actual The Trello API Key.
+  - Replace `TRELLO_TOKEN` placeholder in The Attached JSON Of The Acceptance Test with actual The Trello OAuth Token.
+  - Replace `TRELLO_ORGANIZATION_ID` placeholder in The Attached JSON Of The Acceptance Test with actual The Organization ID.
+
 - "external_sync_unit_id" "688725dad59c015ce052eecf" can be used when board ID is required for testing purposes.
 
-- Card ID "688725fdf26b3c50430cae23" can be used when card ID is required for testing attachments.
+- Card ID "688725db990240b77167efef" can be used when card ID is required for testing attachments.
 
 ## Data Fetching
+
+***Definitions:***
+
+- The Functions implemented *MUST* also return:
+  - `status_code` - a status code from The API.
+  - `api_delay` - Delay in seconds to wait before retrying the request to The API. If we hit a rate limit, this should be more than 0. If we don't hit a rate limit, just set to 0. How to calculate api_delay:
+    - Read the "Retry-After" header from the response (HTTP date object).
+    - If there's no "Retry-After" header, set api_delay to 5.
+  - `message` - Information about the call the The Function.
+  - Note: Every The Function should handle rate limiting.
+
 
 ***Non-Functional Requirements:***
 
@@ -58,24 +78,37 @@
 
 - The Functions being implemented *must not* invoke The Spawn Method nor The Worker Thread.
 
+- Refer to the resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) on what The API returns when we hit rate limit.
+
 ***Functional Requirements:***
 
-- Implement The Function that provides a check if authentication with The API works. Authentication should be checked by making a request to the endpoint "/members/{id}", and providing "me" as the value of the "id" parameter.
-
-- Implement The Function that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards".
+- Implement The Function "check_authentication" that provides a check if authentication with The API works. Authentication should be checked by making a request to the endpoint "/members/{id}", and providing "me" as the value of the "id" parameter.
 
   ***Acceptance Tests:***
 
-  - When using The Test Trello Credentials a board with the name "SaaS connectors" must be in the result of The Function.
+{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "check_authentication" %}
 
-- Implement The Function that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members". The Organization ID is provided in the "org_id" field of the "connection_data" dictionary which is part of "payload" dictionary.
+- Implement The Function "fetch_boards" that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards".
 
-- Implement The Function called "fetch_board_cards" that uses The API to fetch The Fetched Cards for a given board using the endpoint "/boards/{id}/cards".
-  - The Board ID is provided in the "external_sync_unit_id" field of the "event_context" dictionary which is part of "payload" dictionary.
+  ***Acceptance Tests:***
+
+  - Test the function "fetch_boards. Expect to exist a board with the name "SaaS connectors" in the result of The Function.
+
+{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_boards" %}
+
+- Implement The Function "fetch_organization_members" that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members". The Organization ID should be provided in `event["payload"]["connection_data"]["org_id"]`.
+
+  ***Acceptance Tests:***
+
+{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_organization_members" %}
+
+- Implement The Function "fetch_board_cards" that uses The API to fetch The Fetched Cards for a given board using the endpoint "/boards/{id}/cards".
+  - The Board ID should be provided in `event["payload"]["event_context"]["external_sync_unit_id"]`
   - The following pagination parameters should be supported:
     - "limit" (required, integer)
     - "before" (optional, string)
-  - "limit" and "before" should be provided in the "payload" dictionary.
+  - "limit" and "before" should be provided in `event["input_data"]["global_values"]["limit"]` and `event["input_data"]["global_values"]["before"]`.
+  - Endpoint "/boards/{id}/cards" should be called with query param `attachments` set to `true`.
 
   ***Acceptance Tests:***
 
@@ -83,12 +116,23 @@
 
   - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and "before" set to "688725fdf26b3c50430cae23". Expect the number of The Fetched Cards to be 50.
 
-- Implement The Function called "fetch_card_attachments" that uses The API to fetch The Fetched Attachments for a given card using the endpoint "/cards/{id}/attachments".
-  - the "card ID" should be provided in the "payload" dictionary.
+  - Test The Function "fetch_board_cards" with the following flow:
+    - Step 1: Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and "before" set to "688725dce452b309c904aac4" (:= apiResult)
+    - Step 2: Out of `apiResult`, retrieve the card that has property "id" equal to "688725db990240b77167efef" (:= card)
+    - Step 3: From array `card["attachments"]`, retrieve the attachment object that has property "name" equal to "devrev cover" (:= attachment)
+    - Step 4: Expect `attachment["name"]` to be equal to "devrev cover".
+
+{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_board_cards" %}
+
+- Implement The Function "download_attachment" that uses The API to download an attachment using the endpoint "/cards/{idCard}/attachments/{idAttachment}/download/{fileName}".
+  - parameteres "idCard", "idAttachment", and "fileName" should be provided in the `event["input_data"]["global_values"]["idCard"]`, `event["input_data"]["global_values"]["idAttachment"]`, and `event["input_data"]["global_values"]["fileName"]` respectively. All of "idCard", "idAttachment", and "fileName" should be required.
+  - Note: Endpoint "/cards/{idCard}/attachments/{idAttachment}/download/{fileName}" should be called with OAuth 1.0a authorization (oauth_consumer_key and oauth_token encoded in the Authorization header).
 
   ***Acceptance Tests:***
 
-  - Test The Function "fetch_card_attachments" with Card ID "688725fdf26b3c50430cae23". Expect the number of The Fetched Attachments to be 1. The value of field "name" of The Fetched Attachments should be "Result from test.com".
+  - Test The Function "download_attachment" with Card ID "688725db990240b77167efef", Attachment ID "68c2be83c413a1889bde83df", and fileName "temporary-file-name.png". Expect the call to The Function to succeed.
+
+{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "download_attachment" %}
 
 
 ## Generate 'initial_domain_mapping.json' and 'external_domain_metadata.json'
@@ -123,9 +167,7 @@
 
 - Resource [data-extraction.md](docs/data-extraction.md) should serve as a generic guide for the implementation of The Extraction Function.
 
-- Field "dateLastActivity" in The Fetched Cards is of format ISO 8601 Extended Format with timezone.
-
-- If filtering by "dateLastActivity", the filter should be done client-side. The API doesn't support filtering by "dateLastActivity".
+- To list attachments alongside The Fetched Cards, you should use query parameter "attachments" set to "true".
 
 ***Non-Functional Requirements:***
 
@@ -164,75 +206,91 @@
 
 ***Functional Requirements:***
 
-- Implement The Extraction Function that:
-  - Retrieves The Fetched Boards
-  - Pushes The Fetched Boards as external sync units if "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START"
-  - The following mapping from the fields in The Fetched Boards to the fields in The External Sync Units should be used:
+- If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START", The Extraction Function should implement the "external sync units extraction" part of the extraction workflow as described in the resource [external-sync-units-extraction.mdx](docs/external-sync-units-extraction.mdx):
+  - Retrieve The Fetched Boards
+  - Push The Fetched Boards as external sync units using the following mapping from the fields in The Fetched Boards to the fields in The External Sync Units:
     - "id" from The Fetched Boards should be mapped to "id" in The External Sync Units
     - "name" from The Fetched Boards should be mapped to "name" in The External Sync Units
     - "desc" from The Fetched Boards should be mapped to "description" in The External Sync Units
-    - "item_type" should have a fixed value of "tasks"
+    - "item_type" should have a fixed value of "cards"
+  - Refer to the resource [data-extraction-rules-for-emitting-events.md](docs/data-extraction-rules-for-emitting-events.md) for the rules for emitting events from the snap-in.
 
   ***Acceptance Tests:***
   
-  - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. For the test to be successful The Callback Server **must** receive from DevRev **exactly one** event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The test must not send the event directly to The Callback Server.
+  - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). 
+    - Expect The Callback Server to receive *a single* event with "event_type" "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE".
 
-- If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START" The Extraction Function should:
-  - For each board from The Fetched Boards, retrieve the number of The Fetched Cards.
-  - Set the value of The External Sync Unit Item Count of each board to the number of The Fetched Cards.
+{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_EXTERNAL_SYNC_UNITS_START", resource_name: "trello_external_sync_unit_check.json", expected_output_event_type: "EXTRACTION_EXTERNAL_SYNC_UNITS_ERROR" %}
 
-  ***Acceptance Tests:***
-
-  - Test The Extraction Function using the resource [external_sync_unit_counts.json](test_data/external_sync_unit_start.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. For the test to be successful, the callback server **must** receive from DevRev an event with "event_type" that equals "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE". The event_data should contain an "external_sync_units" array where one of the external sync units has "id" equal to The Board ID of "688725dad59c015ce052eecf" and "item_count" equal to 150. The test must not send the event directly to The Callback Server. 
-
-- If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow by pushing The External Domain Metadata JSON object to the repository called 'external_domain_metadata'. Please note that The External Domain Metadata JSON object shouldn't be normalized when pushed to the repository.
+- If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow as described in the resource [metadata-extraction.md](docs/metadata-extraction.mdx). Please note that The External Domain Metadata JSON should not be normalized when pushed to the repository.
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'users' data. To push the 'users' data, it should:
-  - If The Extraction State Object indicates that the users data has been fully pushed to the DevRev servers, skip the 'users' data extraction.
-  - Retrieve The Fetched Users
-  - Push The Fetched Users to the repository designated for 'users' data.
-  - Update The Extraction State Object to indicate that the users data has been fully pushed to the DevRev servers
-  - Refer to the resource [data-extraction-rules-from-emitting-events.md](docs/data-extraction-rules-from-emitting-events.md) for the rules for emitting events from the snap-in.
+  - If The Extraction State Object indicates that the users data *has not been* fully pushed to the DevRev servers:
+    - Retrieve The Fetched Users
+    - Push The Fetched Users to the repository designated for 'users' data.
+    - Update The Extraction State Object to indicate that the users data has been fully pushed to the DevRev servers
+  - Note: Refer to the resource [data-extraction-rules-for-emitting-events.md](docs/data-extraction-rules-for-emitting-events.md) for the rules for emitting events from the snap-in.
 
   ***Acceptance Tests:***
   
-  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
+  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json).
+    - Expect The Callback Server to receive *a single* event with "event_type" "EXTRACTION_DATA_DONE".
+    - Let `artifact_array = <event_from_callback_server>["event_data"]["artifacts"]` (array of objects).
+      - Expect `len(artifact_array) > 0`.
+      - Out of `artifact_array`, find the element that has "item_type" equal to "users" (`:= users_artifact`). Expect `users_artifact["item_count"]=9`.
+
+{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
 
   - Validate The Normalization Function with the chef-cli tool (The Chef CLI) for the "users" record type:
-    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID.
+    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json).
 {% include "templates/chef_cli_normalization_validation.plain", record_type: "users" %}
 
-- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' and 'users' data. To push the 'cards' data, it should:
-  - If The Extraction State Object indicates that the cards data has been fully pushed to the DevRev servers, skip the 'cards' data extraction (Note: If The Extraction State Object indicates that the 'users' data has been fully pushed to the DevRev servers, but the 'cards' data has not, you should still do the extraction of the 'cards' data. Vice versa also applies).
-  - Fetch The Fetched Cards using pagination. If there's a "before" parameter in The Extraction State Object, use it to resume pagination from that point. Otherwise, start from the first page.
-  - After every call to The API for fetching The Fetched Cards:
-    - Update "before" parameter in The Extraction State Object to the ID of the first card in the current page of The Fetched Cards
-    - Push The Fetched Cards from the current page to the repository designated for 'cards' data.
-  - Extraction of The Fetch Cards is successful only after all pages have been processed. After success, update The Extraction State Object to indicate that the cards data has been fully pushed to the DevRev servers.
-  - Refer to the resource [data-extraction-rules-from-emitting-events.md](docs/data-extraction-rules-from-emitting-events.md) for the rules for emitting events from the snap-in.
+- If "event_type" equals "EXTRACTION_DATA_START" or "event_type" equals "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' and 'users' data. Alongside 'cards', 'attachments' data should be pushed. To push the 'cards' and 'attachments' data, it should:
+  - If The Extraction State Object indicates that the cards data *has not been* fully pushed to the DevRev servers:
+    - Fetch The Fetched Cards together with attachments using pagination. If there's a "before" parameter in The Extraction State Object, use it to resume pagination from that point. Otherwise, start from the first page.
+    - After every call to The API for fetching The Fetched Cards:
+      - Update "before" parameter in The Extraction State Object to the ID of the first card in the current page of The Fetched Cards
+      - Flat map the attachments from The Fetched Cards and push the attachments to the repository designated for 'attachments' data.
+      - Push The Fetched Cards from the current page to the repository designated for 'cards' data.
+    - Extraction of The Fetch Cards is successful only after all pages have been processed. After success, update The Extraction State Object to indicate that the cards and the attachments data have been fully pushed to the DevRev servers.
+  - Here's how to normalize "url" field for the NormalizedAttachment object:
+    - If field "url" from The Fetched Attachment object starts with "https://trello.com", you should construct the "url" field using the following format: f"<TRELLO_BASE_URL>/cards/{idCard}/attachments/{idAttachment}/download/{fileName}".
+    - Otherwise, you should set the "url" field to the original "url" field.
+  - Note: Refer to the resource [data-extraction-rules-for-emitting-events.md](docs/data-extraction-rules-for-emitting-events.md) for the rules for emitting events from the snap-in.
+  - Note: Refer to the resource [attachment_normalization.md](docs/attachment_normalization.md) on instructions to normalize attachments.
 
   ***Acceptance Tests:***
 
-  - Test The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server.
+{% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json" %}
 
-  - Test The Extraction Function using the resource [data_extraction_continue_test.json](test_data/data_extraction_continue_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Test is successful if The Callback Server receives from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The test must not send event directly to The Callback Server. The event_data should contain an "artifacts" array where one of the artifacts has "item_type" equal to "cards" and "item_count" equal to 150.
+{% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_continue_test.json" %}
+
+{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
 
   - Validate The Normalization Function with the chef-cli tool (The Chef CLI) for the "cards" record type:
-    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID.
+    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json).
 {% include "templates/chef_cli_normalization_validation.plain", record_type: "cards" %}
 
 - If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
+  - Note: Streaming the attachments *MUST* be authenticated using OAuth 1.0a authorization (oauth_consumer_key and oauth_token encoded in the Authorization header).
+  - Note: Refer to the resource [data-extraction-rules-for-emitting-events.md](docs/data-extraction-rules-for-emitting-events.md) for the rules for emitting events from the snap-in.
+
+  ***Acceptance Tests:***
+
+{% include "templates/attachment_extraction_acceptance_test.plain", data_extraction_resource_name: "data_extraction_test.json", attachment_extraction_resource_name: "attachments_extraction_test.json", expected_attachment_count: 2 %}
+
+  - Test The Extraction Function using the resource [attachments_extraction_continue_test.json](test_data/attachments_extraction_continue_test.json). 
+    - Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_ATTACHMENTS_DONE".
+
+{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_ATTACHMENTS_START", resource_name: "attachments_extraction_test.json", expected_output_event_type: "EXTRACTION_ATTACHMENTS_DONE" %}
 
 - If "event_type" equals "EXTRACTION_DATA_START", The Extraction Function should support incremental data synchronization as described in the resource [incremental_mode.md](docs/incremental_mode.md).
   - Incremental mode should only work for the "cards" data.
   - If we're in incremental mode, set The Extraction State Object to indicate that the cards data has not been fully pushed to the DevRev servers.
-  - Only the cards that have been updated after (this is seen as the value of "dateLastActivity") the time of the last successful sync should be once again pushed to the DevRev servers.
+  - Based on the field "dateLastActivity" (ISO 8601 Extended Format with timezone), you should client-side filter only the cards that have been updated after the time of the last successful sync. The API *does not* support filtering by "dateLastActivity" server-side.
   - Note: In incremental mode, you should filter the cards and push only the filtered cards to the DevRev servers.
-  - Refer to the resource [data-extraction-rules-from-emitting-events.md](docs/data-extraction-rules-from-emitting-events.md) for the rules for emitting events from the snap-in.
+  - Refer to the resource [data-extraction-rules-for-emitting-events.md](docs/data-extraction-rules-for-emitting-events.md) for the rules for emitting events from the snap-in.
 
   ***Acceptance Tests:***
 
-  - Validate the incremental mode with the following flow:
-    - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json). Make sure to replace placeholders in the resource with The Trello API Key, The Trello OAuth Token, and The Organization ID. Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE".
-    - Then, perform request directly to The API to update the card with id "688725fd3e26ebcf364bff4a". More specifically, you should update name of this card to "Card50-{uuid}" using request `curl --request PUT --url 'https://api.trello.com/1/cards/688725fd3e26ebcf364bff4a?key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>&name="Card50-<uuid>"' --header 'Accept: application/json'` (replace <TRELLO_API_KEY>, <TRELLO_TOKEN> and <uuid> with the actual values).
-    - Then, invoke The Extraction Function using the same resource [data_extraction_test.json](test_data/data_extraction_test.json), but with payload.event_context.mode set to "INCREMENTAL". Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE". The "event_data" should contain an array "artifacts" where one of the elements has "item_type" equal to "cards" and "item_count" equal to 1, indicating only one card has been synced.
+{% include "templates/incremental_mode_acceptance_tests.plain" %}

@@ -1,0 +1,5 @@
+  - Test The Extraction Function using the resource [{{ resource_name }}](test_data/{{ resource_name }}).
+    - Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE".
+    - Let `artifact_array = <event_from_callback_server>["event_data"]["artifacts"]` (array of objects).
+      - Out of `artifact_array`, expect one of the elements to have "item_type" equal to "cards" (`:= cards_artifact`) and `cards_artifact["item_count"]=150`.
+      - Out of `artifact_array`, expect one of the elements to have "item_type" equal to "attachments" (`:= attachments_artifact`) and `attachments_artifact["item_count"]=2`.
