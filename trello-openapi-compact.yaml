@@ -6,8 +6,7 @@ info:
     This document contains information about how to authenticate with the Trello
     API.
 servers:
-  # IMPORTANT: Read the base URL from the environment variable `TRELLO_BASE_URL`.
-  - url: '{{TRELLO_BASE_URL}}'
+  - url: 'https://api.trello.com/1/'
 components:
   securitySchemes:
     APIKey:
@@ -352,7 +351,7 @@ paths:
 
         How to execute this with CURL: 
         ```
-        curl -X GET "{{TRELLO_BASE_URL}}/cards/{idCard}/attachments/{idAttachment}/download/{fileName}" -H "Authorization: OAuth oauth_consumer_key=\"{oauth_consumer_key}\", oauth_token=\"{oauth_token}\""
+        curl -X GET "https://api.trello.com/1//cards/{idCard}/attachments/{idAttachment}/download/{fileName}" -H "Authorization: OAuth oauth_consumer_key=\"{oauth_consumer_key}\", oauth_token=\"{oauth_token}\""
         ```
       parameters:
         - name: idCard
