@@ -1,0 +1,53 @@
+{
+  "schema_version": "v0.2.0",
+  "record_types": {
+    "users": {
+      "name": "Users",
+      "fields": {
+        "full_name": {
+          "name": "Full Name",
+          "type": "text",
+          "is_required": true
+        },
+        "username": {
+          "name": "Username",
+          "type": "text",
+          "is_required": true
+        }
+      }
+    },
+    "cards": {
+      "name": "Cards",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "type": "text",
+          "is_required": true
+        },
+        "url": {
+          "name": "URL",
+          "type": "text",
+          "is_required": true
+        },
+        "description": {
+          "name": "Description",
+          "type": "rich_text",
+          "is_required": true
+        },
+        "id_members": {
+          "name": "ID Members",
+          "type": "reference",
+          "is_required": true,
+          "collection": {
+            "max_length": 50
+          },
+          "reference": {
+            "refers_to": {
+              "#record:users": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

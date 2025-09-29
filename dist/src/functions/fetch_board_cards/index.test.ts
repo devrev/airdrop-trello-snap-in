@@ -1,199 +1,254 @@
-import { run, FetchBoardCardsResult } from './index';
-import {
-  createMockEvent,
-  setupSuccessfulCardsFetch,
-  setupFailedCardsFetch,
-  setupRateLimitMock,
-  MOCK_CARDS,
-  MockedTrelloClient,
-  mockedParseApiCredentials
+import { run } from './index';
+import { TrelloClient } from '../../core/trello-client';
+import { 
+  mockCards, 
+  createMockEvent, 
+  setupTrelloClientMock, 
+  setupTrelloClientParseError 
 } from './test-helpers';
 
-// Import the module to ensure mocks are applied
+// Mock the TrelloClient
 jest.mock('../../core/trello-client');
 
 describe('fetch_board_cards function', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.TRELLO_BASE_URL = 'https://api.trello.com/1';
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it('should successfully fetch cards with valid parameters', async () => {
-    const mockEvent = createMockEvent();
-    const mockGetBoardCards = setupSuccessfulCardsFetch();
-
-    const result: FetchBoardCardsResult = await run([mockEvent]);
-
-    expect(mockedParseApiCredentials).toHaveBeenCalledWith('key=test-api-key&token=test-token');
-    expect(MockedTrelloClient).toHaveBeenCalledWith({
-      baseUrl: 'https://api.trello.com/1',
-      apiKey: 'test-api-key',
-      token: 'test-token'
-    });
-    expect(mockGetBoardCards).toHaveBeenCalledWith('board1', {
-      limit: 100,
-      before: 'card123'
-    });
-    expect(result).toEqual({
-      success: true,
+  it('should return cards when API call succeeds', async () => {
+    const mockGetBoardCards = setupTrelloClientMock({
+      data: mockCards,
       status_code: 200,
       api_delay: 0,
-      message: 'Successfully fetched 2 cards from board',
-      raw_response: { status: 200, data: MOCK_CARDS },
-      cards: MOCK_CARDS
+      message: 'Successfully fetched board cards from Trello API',
     });
-  });
 
-  it('should handle authentication failure with 401 status', async () => {
-    const mockEvent = createMockEvent();
-    const mockGetBoardCards = setupFailedCardsFetch(401, 'Authentication failed. Invalid API key or token');
-
-    const result: FetchBoardCardsResult = await run([mockEvent]);
+    const result = await run([createMockEvent()]);
 
     expect(result).toEqual({
-      success: false,
-      status_code: 401,
+      cards: mockCards,
+      status_code: 200,
       api_delay: 0,
-      message: 'Authentication failed. Invalid API key or token',
-      raw_response: { status: 401, headers: {} },
-      cards: undefined
+      message: 'Successfully fetched board cards from Trello API',
     });
+    expect(mockGetBoardCards).toHaveBeenCalledWith('test-board-id', 10, undefined);
   });
 
-  it('should handle rate limiting with 429 status', async () => {
-    const mockEvent = createMockEvent();
-    const mockGetBoardCards = setupRateLimitMock('60');
-
-    const result: FetchBoardCardsResult = await run([mockEvent]);
-
-    expect(result).toEqual({
-      success: false,
-      status_code: 429,
-      api_delay: 60,
-      message: 'Rate limit exceeded. Retry after 60 seconds',
-      raw_response: { status: 429, headers: { 'retry-after': '60' } },
-      cards: undefined
-    });
-  });
-
-  it('should return error when no events are provided', async () => {
-    const result: FetchBoardCardsResult = await run([]);
-
-    expect(result).toEqual({
-      success: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Fetch board cards failed: No events provided',
-      raw_response: null,
-      cards: undefined
-    });
-  });
-
-  it('should return error when TRELLO_BASE_URL is not set', async () => {
-    delete process.env.TRELLO_BASE_URL;
-    const mockEvent = createMockEvent();
-
-    const result: FetchBoardCardsResult = await run([mockEvent]);
-
-    expect(result).toEqual({
-      success: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Fetch board cards failed: TRELLO_BASE_URL environment variable not set',
-      raw_response: null,
-      cards: undefined
-    });
-  });
-
-  it('should return error when connection data is missing', async () => {
-    const mockEvent = createMockEvent({
-      payload: {
-        connection_data: undefined
-      }
-    });
-
-    const result: FetchBoardCardsResult = await run([mockEvent]);
-
-    expect(result).toEqual({
-      success: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Fetch board cards failed: Missing connection data or API key',
-      raw_response: null,
-      cards: undefined
-    });
-  });
-
-  it('should return error when board ID is missing', async () => {
-    const mockEvent = createMockEvent({
-      payload: {
-        event_context: {
-          external_sync_unit_id: undefined
+  it('should pass before parameter when provided', async () => {
+    const eventWithBefore = createMockEvent({
+      input_data: {
+        global_values: {
+          limit: '5',
+          before: 'card123'
         }
       }
     });
 
-    const result: FetchBoardCardsResult = await run([mockEvent]);
+    const mockGetBoardCards = setupTrelloClientMock({
+      data: mockCards,
+      status_code: 200,
+      api_delay: 0,
+      message: 'Successfully fetched board cards from Trello API',
+    });
+
+    const result = await run([eventWithBefore]);
+
+    expect(mockGetBoardCards).toHaveBeenCalledWith('test-board-id', 5, 'card123');
+  });
+
+  it('should handle API call failure with 401', async () => {
+    setupTrelloClientMock({
+      status_code: 401,
+      api_delay: 0,
+      message: 'Authentication failed. Invalid API key or token',
+    });
+
+    const result = await run([createMockEvent()]);
 
     expect(result).toEqual({
-      success: false,
+      status_code: 401,
+      api_delay: 0,
+      message: 'Authentication failed. Invalid API key or token',
+    });
+    expect(result.cards).toBeUndefined();
+  });
+
+  it('should handle API call failure with 404', async () => {
+    setupTrelloClientMock({
+      status_code: 404,
+      api_delay: 0,
+      message: 'Board not found',
+    });
+
+    const result = await run([createMockEvent()]);
+
+    expect(result).toEqual({
+      status_code: 404,
+      api_delay: 0,
+      message: 'Board not found',
+    });
+  });
+
+  it('should handle rate limiting with proper api_delay', async () => {
+    setupTrelloClientMock({
+      status_code: 429,
+      api_delay: 30,
+      message: 'Rate limit exceeded. Retry after 30 seconds',
+    });
+
+    const result = await run([createMockEvent()]);
+
+    expect(result).toEqual({
+      status_code: 429,
+      api_delay: 30,
+      message: 'Rate limit exceeded. Retry after 30 seconds',
+    });
+  });
+
+  it('should return error when no events are provided', async () => {
+    const result = await run([]);
+
+    expect(result).toEqual({
       status_code: 0,
       api_delay: 0,
-      message: 'Fetch board cards failed: Missing board ID (external_sync_unit_id)',
-      raw_response: null,
-      cards: undefined
+      message: 'Fetch board cards failed: No events provided',
+    });
+  });
+
+  it('should return error when connection data is missing', async () => {
+    const eventWithoutConnectionData = {
+      ...createMockEvent(),
+      payload: {
+        event_context: createMockEvent().payload.event_context
+      }
+    };
+
+    const result = await run([eventWithoutConnectionData]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Fetch board cards failed: Missing connection data',
+    });
+  });
+
+  it('should return error when board ID is missing', async () => {
+    const eventWithoutBoardId = {
+      ...createMockEvent(),
+      payload: {
+        ...createMockEvent().payload,
+        event_context: {
+          ...createMockEvent().payload.event_context,
+          external_sync_unit_id: undefined
+        }
+      }
+    };
+
+    const result = await run([eventWithoutBoardId]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Fetch board cards failed: Missing board ID',
     });
   });
 
   it('should return error when limit parameter is missing', async () => {
-    const mockEvent = createMockEvent({
+    const eventWithoutLimit = createMockEvent({
       input_data: {
-        global_values: {
-          limit: '',
-          before: 'card123'
-        },
-        event_sources: {}
+        global_values: {}
       }
     });
 
-    const result: FetchBoardCardsResult = await run([mockEvent]);
+    const result = await run([eventWithoutLimit]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 0,
       api_delay: 0,
-      message: 'Fetch board cards failed: Missing or invalid limit parameter',
-      raw_response: null,
-      cards: undefined
+      message: 'Fetch board cards failed: Missing required limit parameter',
     });
   });
 
-  it('should handle request with only limit parameter (no before)', async () => {
-    const mockEvent = createMockEvent({
+  it('should return error when limit parameter is invalid', async () => {
+    const eventWithInvalidLimit = createMockEvent({
       input_data: {
         global_values: {
-          limit: '50',
-          before: ''
-        },
-        event_sources: {}
+          limit: 'invalid'
+        }
       }
     });
-    
-    const mockGetBoardCards = setupSuccessfulCardsFetch();
 
-    const result: FetchBoardCardsResult = await run([mockEvent]);
+    const result = await run([eventWithInvalidLimit]);
 
-    expect(mockGetBoardCards).toHaveBeenCalledWith('board1', {
-      limit: 50,
-      before: ''
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Fetch board cards failed: Invalid limit parameter',
     });
-    expect(result.success).toBe(true);
+  });
+
+  it('should return error when limit parameter is zero', async () => {
+    const eventWithZeroLimit = createMockEvent({
+      input_data: {
+        global_values: {
+          limit: '0'
+        }
+      }
+    });
+
+    const result = await run([eventWithZeroLimit]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Fetch board cards failed: Invalid limit parameter',
+    });
+  });
+
+  it('should return error when credentials parsing fails', async () => {
+    setupTrelloClientParseError('Invalid connection data: missing API key or token');
+
+    const eventWithInvalidKey = createMockEvent({
+      payload: {
+        connection_data: {
+          key: 'invalid-format'
+        }
+      }
+    });
+
+    const result = await run([eventWithInvalidKey]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Fetch board cards failed: Invalid connection data: missing API key or token',
+    });
+  });
+
+  it('should handle undefined events array', async () => {
+    // @ts-ignore - Testing invalid input
+    const result = await run(undefined);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Fetch board cards failed: No events provided',
+    });
+  });
+
+  it('should handle network errors', async () => {
+    setupTrelloClientMock({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Network error: Unable to reach Trello API',
+    });
+
+    const result = await run([createMockEvent()]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Network error: Unable to reach Trello API',
+    });
   });
 });

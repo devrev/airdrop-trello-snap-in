@@ -1,6 +1,6 @@
 import { run } from './index';
 import { FunctionInput } from '../../core/types';
-import externalDomainMetadata from './external_domain_metadata.json';
+import externalDomainMetadata from '../../external-domain-metadata.json';
 
 describe('get_external_domain_metadata function', () => {
   const mockEvent: FunctionInput = {
@@ -27,61 +27,98 @@ describe('get_external_domain_metadata function', () => {
     }
   };
 
-  it('should return the External Domain Metadata JSON object', async () => {
+  it('should return external domain metadata when given valid events', async () => {
     const result = await run([mockEvent]);
     
     expect(result).toEqual({
+      external_domain_metadata: externalDomainMetadata,
       success: true,
-      message: 'Successfully retrieved External Domain Metadata',
-      metadata: externalDomainMetadata
+      message: 'External domain metadata retrieved successfully'
     });
   });
 
-  it('should have the required record type and fields', async () => {
+  it('should return the correct structure for users record type', async () => {
     const result = await run([mockEvent]);
     
-    // Check if users record type exists
-    expect(result.metadata.record_types).toHaveProperty('users');
+    expect(result.external_domain_metadata.record_types.users).toBeDefined();
+    expect(result.external_domain_metadata.record_types.users.name).toBe('Users');
+    expect(result.external_domain_metadata.record_types.users.fields.full_name).toEqual({
+      name: 'Full Name',
+      type: 'text',
+      is_required: true
+    });
+    expect(result.external_domain_metadata.record_types.users.fields.username).toEqual({
+      name: 'Username',
+      type: 'text',
+      is_required: true
+    });
+  });
+
+  it('should return the correct structure for cards record type', async () => {
+    const result = await run([mockEvent]);
     
-    // Check if required fields exist with correct properties
-    const usersFields = result.metadata.record_types.users.fields;
+    expect(result.external_domain_metadata.record_types.cards).toBeDefined();
+    expect(result.external_domain_metadata.record_types.cards.name).toBe('Cards');
+    expect(result.external_domain_metadata.record_types.cards.fields.name).toEqual({
+      name: 'Name',
+      type: 'text',
+      is_required: true
+    });
+    expect(result.external_domain_metadata.record_types.cards.fields.url).toEqual({
+      name: 'URL',
+      type: 'text',
+      is_required: true
+    });
+    expect(result.external_domain_metadata.record_types.cards.fields.description).toEqual({
+      name: 'Description',
+      type: 'rich_text',
+      is_required: true
+    });
+    expect(result.external_domain_metadata.record_types.cards.fields.id_members).toEqual({
+      name: 'ID Members',
+      type: 'reference',
+      is_required: true,
+      collection: {
+        max_length: 50
+      },
+      reference: {
+        refers_to: {
+          '#record:users': {}
+        }
+      }
+    });
+  });
+
+  it('should have correct schema version', async () => {
+    const result = await run([mockEvent]);
     
-    expect(usersFields).toHaveProperty('full_name');
-    expect(usersFields.full_name.type).toBe('text');
-    expect(usersFields.full_name.name).toBe('Full Name');
-    expect(usersFields.full_name.is_required).toBe(true);
+    expect(result.external_domain_metadata.schema_version).toBe('v0.2.0');
+  });
+
+  it('should have both users and cards record types', async () => {
+    const result = await run([mockEvent]);
     
-    expect(usersFields).toHaveProperty('username');
-    expect(usersFields.username.type).toBe('text');
-    expect(usersFields.username.name).toBe('Username');
-    expect(usersFields.username.is_required).toBe(true);
+    expect(Object.keys(result.external_domain_metadata.record_types)).toEqual(['users', 'cards']);
+  });
+
+  it('should return an error when no events are provided', async () => {
+    const result = await run([]);
     
-    // Check if cards record type exists
-    expect(result.metadata.record_types).toHaveProperty('cards');
+    expect(result).toEqual({
+      external_domain_metadata: {},
+      success: false,
+      message: 'Get external domain metadata failed: No events provided'
+    });
+  });
+
+  it('should handle undefined events array', async () => {
+    // @ts-ignore - Testing invalid input
+    const result = await run(undefined);
     
-    // Check if required fields exist with correct properties for cards
-    const cardsFields = result.metadata.record_types.cards.fields;
-    
-    expect(cardsFields).toHaveProperty('name');
-    expect(cardsFields.name.type).toBe('text');
-    expect(cardsFields.name.name).toBe('Name');
-    expect(cardsFields.name.is_required).toBe(true);
-    
-    expect(cardsFields).toHaveProperty('url');
-    expect(cardsFields.url.type).toBe('text');
-    expect(cardsFields.url.name).toBe('URL');
-    expect(cardsFields.url.is_required).toBe(true);
-    
-    expect(cardsFields).toHaveProperty('description');
-    expect(cardsFields.description.type).toBe('rich_text');
-    expect(cardsFields.description.name).toBe('Description');
-    expect(cardsFields.description.is_required).toBe(true);
-    
-    expect(cardsFields).toHaveProperty('id_members');
-    expect(cardsFields.id_members.type).toBe('reference');
-    expect(cardsFields.id_members.name).toBe('ID Members');
-    expect(cardsFields.id_members.is_required).toBe(true);
-    expect(cardsFields.id_members.collection).toHaveProperty('max_length', 50);
-    expect(cardsFields.id_members.reference.refers_to).toHaveProperty('#record:users');
+    expect(result).toEqual({
+      external_domain_metadata: {},
+      success: false,
+      message: 'Get external domain metadata failed: No events provided'
+    });
   });
 });

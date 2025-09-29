@@ -1,199 +1,214 @@
-import { run, DownloadAttachmentResult } from './index';
-import {
-  createMockEvent,
-  setupSuccessfulDownload,
-  setupFailedDownload,
-  setupRateLimitMock,
-  MOCK_ATTACHMENT_DATA,
-  MockedTrelloClient,
-  mockedParseApiCredentials
+import { run } from './index';
+import { TrelloClient } from '../../core/trello-client';
+import { 
+  mockAttachmentData, 
+  createMockEvent, 
+  setupTrelloClientMock, 
+  setupTrelloClientParseError 
 } from './test-helpers';
 
-// Import the module to ensure mocks are applied
+// Mock the TrelloClient
 jest.mock('../../core/trello-client');
 
 describe('download_attachment function', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.TRELLO_BASE_URL = 'https://api.trello.com/1';
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it('should successfully download an attachment with valid parameters', async () => {
-    const mockEvent = createMockEvent();
-    const mockDownloadAttachment = setupSuccessfulDownload();
-
-    const result: DownloadAttachmentResult = await run([mockEvent]);
-
-    expect(mockedParseApiCredentials).toHaveBeenCalledWith('key=test-api-key&token=test-token');
-    expect(MockedTrelloClient).toHaveBeenCalledWith({
-      baseUrl: 'https://api.trello.com/1',
-      apiKey: 'test-api-key',
-      token: 'test-token'
-    });
-    expect(mockDownloadAttachment).toHaveBeenCalledWith('card123', 'att456', 'test-file.pdf');
-    expect(result).toEqual({
-      success: true,
+  it('should return attachment data when API call succeeds', async () => {
+    const mockDownloadAttachment = setupTrelloClientMock({
+      data: mockAttachmentData,
       status_code: 200,
       api_delay: 0,
-      message: 'Successfully downloaded attachment: test-file.pdf',
-      raw_response: { status: 200, data: MOCK_ATTACHMENT_DATA },
-      attachment_data: 'base64encodedcontent',
-      content_type: 'application/pdf'
+      message: 'Successfully downloaded attachment from Trello API',
     });
-  });
 
-  it('should handle authentication failure with 401 status', async () => {
-    const mockEvent = createMockEvent();
-    const mockDownloadAttachment = setupFailedDownload(401, 'Authentication failed. Invalid API key or token');
-
-    const result: DownloadAttachmentResult = await run([mockEvent]);
+    const result = await run([createMockEvent()]);
 
     expect(result).toEqual({
-      success: false,
+      attachment_data: mockAttachmentData,
+      status_code: 200,
+      api_delay: 0,
+      message: 'Successfully downloaded attachment from Trello API',
+    });
+    expect(mockDownloadAttachment).toHaveBeenCalledWith('test-card-id', 'test-attachment-id', 'test-file.pdf');
+  });
+
+  it('should handle API call failure with 401', async () => {
+    setupTrelloClientMock({
       status_code: 401,
       api_delay: 0,
       message: 'Authentication failed. Invalid API key or token',
-      raw_response: { status: 401, headers: {} },
-      attachment_data: undefined,
-      content_type: undefined
+    });
+
+    const result = await run([createMockEvent()]);
+
+    expect(result).toEqual({
+      status_code: 401,
+      api_delay: 0,
+      message: 'Authentication failed. Invalid API key or token',
+    });
+    expect(result.attachment_data).toBeUndefined();
+  });
+
+  it('should handle API call failure with 404', async () => {
+    setupTrelloClientMock({
+      status_code: 404,
+      api_delay: 0,
+      message: 'Resource not found',
+    });
+
+    const result = await run([createMockEvent()]);
+
+    expect(result).toEqual({
+      status_code: 404,
+      api_delay: 0,
+      message: 'Resource not found',
     });
   });
 
-  it('should handle rate limiting with 429 status', async () => {
-    const mockEvent = createMockEvent();
-    const mockDownloadAttachment = setupRateLimitMock('60');
+  it('should handle rate limiting with proper api_delay', async () => {
+    setupTrelloClientMock({
+      status_code: 429,
+      api_delay: 30,
+      message: 'Rate limit exceeded. Retry after 30 seconds',
+    });
 
-    const result: DownloadAttachmentResult = await run([mockEvent]);
+    const result = await run([createMockEvent()]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 429,
-      api_delay: 60,
-      message: 'Rate limit exceeded. Retry after 60 seconds',
-      raw_response: { status: 429, headers: { 'retry-after': '60' } },
-      attachment_data: undefined,
-      content_type: undefined
+      api_delay: 30,
+      message: 'Rate limit exceeded. Retry after 30 seconds',
     });
   });
 
   it('should return error when no events are provided', async () => {
-    const result: DownloadAttachmentResult = await run([]);
+    const result = await run([]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 0,
       api_delay: 0,
       message: 'Download attachment failed: No events provided',
-      raw_response: null
-    });
-  });
-
-  it('should return error when TRELLO_BASE_URL is not set', async () => {
-    delete process.env.TRELLO_BASE_URL;
-    const mockEvent = createMockEvent();
-
-    const result: DownloadAttachmentResult = await run([mockEvent]);
-
-    expect(result).toEqual({
-      success: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: TRELLO_BASE_URL environment variable not set',
-      raw_response: null
     });
   });
 
   it('should return error when connection data is missing', async () => {
-    const mockEvent = createMockEvent({
-      payload: {
-        connection_data: undefined
-      }
-    });
+    const eventWithoutConnectionData = {
+      ...createMockEvent(),
+      payload: {}
+    };
 
-    const result: DownloadAttachmentResult = await run([mockEvent]);
+    const result = await run([eventWithoutConnectionData]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 0,
       api_delay: 0,
-      message: 'Download attachment failed: Missing connection data or API key',
-      raw_response: null
+      message: 'Download attachment failed: Missing connection data',
     });
   });
 
   it('should return error when idCard parameter is missing', async () => {
-    const mockEvent = createMockEvent({
+    const eventWithoutIdCard = createMockEvent({
       input_data: {
-        event_sources: {},
         global_values: {
-          idCard: '',
-          idAttachment: 'att456',
+          idAttachment: 'test-attachment-id',
           fileName: 'test-file.pdf'
         }
       }
     });
 
-    const result: DownloadAttachmentResult = await run([mockEvent]);
+    const result = await run([eventWithoutIdCard]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 0,
       api_delay: 0,
-      message: 'Download attachment failed: Missing idCard parameter',
-      raw_response: null
+      message: 'Download attachment failed: Missing required idCard parameter',
     });
   });
 
   it('should return error when idAttachment parameter is missing', async () => {
-    const mockEvent = createMockEvent({
+    const eventWithoutIdAttachment = createMockEvent({
       input_data: {
-        event_sources: {},
         global_values: {
-          idCard: 'card123',
-          idAttachment: '',
+          idCard: 'test-card-id',
           fileName: 'test-file.pdf'
         }
       }
     });
 
-    const result: DownloadAttachmentResult = await run([mockEvent]);
+    const result = await run([eventWithoutIdAttachment]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 0,
       api_delay: 0,
-      message: 'Download attachment failed: Missing idAttachment parameter',
-      raw_response: null
+      message: 'Download attachment failed: Missing required idAttachment parameter',
     });
   });
 
   it('should return error when fileName parameter is missing', async () => {
-    const mockEvent = createMockEvent({
+    const eventWithoutFileName = createMockEvent({
       input_data: {
-        event_sources: {},
         global_values: {
-          idCard: 'card123',
-          idAttachment: 'att456',
-          fileName: ''
+          idCard: 'test-card-id',
+          idAttachment: 'test-attachment-id'
         }
       }
     });
 
-    const result: DownloadAttachmentResult = await run([mockEvent]);
+    const result = await run([eventWithoutFileName]);
 
     expect(result).toEqual({
-      success: false,
       status_code: 0,
       api_delay: 0,
-      message: 'Download attachment failed: Missing fileName parameter',
-      raw_response: null
+      message: 'Download attachment failed: Missing required fileName parameter',
+    });
+  });
+
+  it('should return error when credentials parsing fails', async () => {
+    setupTrelloClientParseError('Invalid connection data: missing API key or token');
+
+    const eventWithInvalidKey = createMockEvent({
+      payload: {
+        connection_data: {
+          key: 'invalid-format'
+        }
+      }
+    });
+
+    const result = await run([eventWithInvalidKey]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Download attachment failed: Invalid connection data: missing API key or token',
+    });
+  });
+
+  it('should handle undefined events array', async () => {
+    // @ts-ignore - Testing invalid input
+    const result = await run(undefined);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Download attachment failed: No events provided',
+    });
+  });
+
+  it('should handle network errors', async () => {
+    setupTrelloClientMock({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Network error: Unable to reach Trello API',
+    });
+
+    const result = await run([createMockEvent()]);
+
+    expect(result).toEqual({
+      status_code: 0,
+      api_delay: 0,
+      message: 'Network error: Unable to reach Trello API',
     });
   });
 });

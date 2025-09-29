@@ -1,144 +1,110 @@
-import { TrelloClient, parseApiCredentials, TrelloApiResponse } from '../../core/trello-client';
 import { FunctionInput } from '../../core/types';
+import { TrelloClient } from '../../core/trello-client';
 
 export interface DownloadAttachmentResult {
-  success: boolean;
+  attachment_data?: Buffer;
   status_code: number;
   api_delay: number;
   message: string;
-  raw_response: any;
-  attachment_data?: string; // Base64 encoded attachment data
-  content_type?: string;
 }
 
 /**
- * Function that downloads an attachment from a Trello card.
+ * Function that downloads an attachment from Trello API.
  * 
  * @param events Array of function input events
- * @returns Object containing the downloaded attachment data and API response metadata
+ * @returns Object containing attachment data and API response info
  */
 export async function run(events: FunctionInput[]): Promise<DownloadAttachmentResult> {
   try {
     // Process only the first event
     if (!events || events.length === 0) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
         message: 'Download attachment failed: No events provided',
-        raw_response: null,
       };
     }
 
     const event = events[0];
     
-    // Validate required environment variable
-    const baseUrl = process.env.TRELLO_BASE_URL;
-    if (!baseUrl) {
-      return {
-        success: false,
-        status_code: 0,
-        api_delay: 0,
-        message: 'Download attachment failed: TRELLO_BASE_URL environment variable not set',
-        raw_response: null,
-      };
-    }
-
     // Extract connection data
     const connectionData = event.payload.connection_data;
     if (!connectionData || !connectionData.key) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
-        message: 'Download attachment failed: Missing connection data or API key',
-        raw_response: null,
+        message: 'Download attachment failed: Missing connection data',
       };
     }
 
-    // Get required parameters from global_values
-    const idCard = event.input_data?.global_values?.idCard;
-    const idAttachment = event.input_data?.global_values?.idAttachment;
-    const fileName = event.input_data?.global_values?.fileName;
+    // Extract required parameters
+    const globalValues = event.input_data.global_values;
+    const idCard = globalValues?.idCard;
+    const idAttachment = globalValues?.idAttachment;
+    const fileName = globalValues?.fileName;
 
-    // Validate required parameters
     if (!idCard) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
-        message: 'Download attachment failed: Missing idCard parameter',
-        raw_response: null,
+        message: 'Download attachment failed: Missing required idCard parameter',
       };
     }
 
     if (!idAttachment) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
-        message: 'Download attachment failed: Missing idAttachment parameter',
-        raw_response: null,
+        message: 'Download attachment failed: Missing required idAttachment parameter',
       };
     }
 
     if (!fileName) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
-        message: 'Download attachment failed: Missing fileName parameter',
-        raw_response: null,
+        message: 'Download attachment failed: Missing required fileName parameter',
       };
     }
 
     // Parse API credentials
-    let apiCredentials;
+    let credentials;
     try {
-      apiCredentials = parseApiCredentials(connectionData.key);
+      credentials = TrelloClient.parseCredentials(connectionData.key);
     } catch (error) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
         message: `Download attachment failed: ${error instanceof Error ? error.message : String(error)}`,
-        raw_response: null,
       };
     }
 
-    // Initialize Trello client
+    // Initialize Trello client and download attachment
     const trelloClient = new TrelloClient({
-      baseUrl: baseUrl,
-      apiKey: apiCredentials.apiKey,
-      token: apiCredentials.token,
+      apiKey: credentials.apiKey,
+      token: credentials.token,
     });
 
-    // Download the attachment
-    const response: TrelloApiResponse = await trelloClient.downloadAttachment(idCard, idAttachment, fileName);
+    const response = await trelloClient.downloadAttachment(idCard, idAttachment, fileName);
 
-    // Determine success based on response
-    const success = response.status_code === 200 && !!response.data;
-
-    return {
-      success: success,
+    const result: DownloadAttachmentResult = {
       status_code: response.status_code,
       api_delay: response.api_delay,
-      message: success 
-        ? `Successfully downloaded attachment: ${fileName}`
-        : response.message,
-      raw_response: response.raw_response,
-      attachment_data: success ? response.data.content : undefined,
-      content_type: success ? response.data.contentType : undefined,
+      message: response.message,
     };
 
+    // Include attachment data if successful
+    if (response.status_code === 200 && response.data) {
+      result.attachment_data = response.data;
+    }
+
+    return result;
   } catch (error) {
     console.error('Error in download_attachment function:', error);
     return {
-      success: false,
       status_code: 0,
       api_delay: 0,
       message: `Download attachment failed: ${error instanceof Error ? error.message : String(error)}`,
-      raw_response: null,
     };
   }
 }

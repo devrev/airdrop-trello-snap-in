@@ -1,12 +1,9 @@
 import { EventType } from '@devrev/ts-adaas';
 import { FunctionInput } from '../../core/types';
 
-/**
- * Base mock event template
- */
-const baseMockEvent: FunctionInput = {
+export const createMockEvent = (eventType: string, overrides: any = {}): FunctionInput => ({
   payload: {
-    event_type: EventType.ExtractionExternalSyncUnitsStart,
+    event_type: eventType,
     connection_data: {
       org_id: 'test-org-id',
       org_name: 'test-org-name',
@@ -37,7 +34,8 @@ const baseMockEvent: FunctionInput = {
       uuid: 'test-uuid',
       worker_data_url: 'test-worker-data-url'
     },
-    event_data: {}
+    event_data: {},
+    ...overrides.payload
   },
   context: {
     dev_oid: 'test-dev-oid',
@@ -47,82 +45,69 @@ const baseMockEvent: FunctionInput = {
     service_account_id: 'test-service-account-id',
     secrets: {
       service_account_token: 'test-token'
-    }
+    },
+    ...overrides.context
   },
   execution_metadata: {
     request_id: 'test-request-id',
     function_name: 'extraction',
     event_type: 'test-event-type',
-    devrev_endpoint: 'https://api.devrev.ai'
+    devrev_endpoint: 'https://api.devrev.ai',
+    ...overrides.execution_metadata
   },
   input_data: {
     global_values: {},
-    event_sources: {}
+    event_sources: {},
+    ...overrides.input_data
   }
-};
+});
 
-/**
- * Creates a mock event with the specified event type
- */
-export function createMockEvent(eventType: string): FunctionInput {
-  return {
-    ...baseMockEvent,
-    payload: {
-      ...baseMockEvent.payload,
-      event_type: eventType
-    }
-  };
-}
-
-/**
- * Creates a mock event with custom overrides
- */
-export function createMockEventWithOverrides(overrides: Partial<FunctionInput>): FunctionInput {
-  const mergedEvent = { ...baseMockEvent };
-  
-  if (overrides.payload) {
-    mergedEvent.payload = { ...baseMockEvent.payload, ...overrides.payload };
-  }
-  if (overrides.context) {
-    mergedEvent.context = { ...baseMockEvent.context, ...overrides.context };
-  }
-  if (overrides.execution_metadata) {
-    mergedEvent.execution_metadata = { ...baseMockEvent.execution_metadata, ...overrides.execution_metadata };
-  }
-  if (overrides.input_data) {
-    mergedEvent.input_data = { ...baseMockEvent.input_data, ...overrides.input_data };
-  }
-
-  return mergedEvent;
-}
-
-/**
- * Expected spawn call parameters for testing
- */
-export const expectedSpawnParams = {
-  event: expect.anything(),
-  initialState: expect.objectContaining({
+export const expectedSpawnConfig = {
+  event: expect.any(Object),
+  initialState: {
     users: { completed: false },
     cards: { completed: false },
     attachments: { completed: false }
-  }),
+  },
   workerPath: expect.stringContaining('/worker.ts'),
-  initialDomainMapping: expect.anything(),
-  options: expect.anything()
+  initialDomainMapping: expect.any(Object),
+  options: {
+    timeout: 10 * 60 * 1000
+  }
 };
 
-/**
- * Expected success result
- */
-export const expectedSuccessResult = {
-  success: true,
-  message: 'Extraction process initiated successfully'
+export const testEventTypes = {
+  EXTERNAL_SYNC_UNITS_START: {
+    eventType: EventType.ExtractionExternalSyncUnitsStart,
+    message: 'External sync units extraction initiated successfully'
+  },
+  METADATA_START: {
+    eventType: EventType.ExtractionMetadataStart,
+    message: 'Metadata extraction initiated successfully'
+  },
+  DATA_START: {
+    eventType: EventType.ExtractionDataStart,
+    message: 'Data extraction initiated successfully'
+  },
+  DATA_CONTINUE: {
+    eventType: EventType.ExtractionDataContinue,
+    message: 'Data extraction initiated successfully'
+  },
+  ATTACHMENTS_START: {
+    eventType: EventType.ExtractionAttachmentsStart,
+    message: 'Attachments extraction initiated successfully'
+  },
+  ATTACHMENTS_CONTINUE: {
+    eventType: EventType.ExtractionAttachmentsContinue,
+    message: 'Attachments extraction initiated successfully'
+  }
 };
 
-/**
- * Expected error result for no events
- */
-export const expectedNoEventsError = {
-  success: false,
-  message: 'Extraction process failed: No events provided'
-};
+export const supportedEventTypes = [
+  EventType.ExtractionExternalSyncUnitsStart,
+  EventType.ExtractionMetadataStart,
+  EventType.ExtractionDataStart,
+  EventType.ExtractionDataContinue,
+  EventType.ExtractionAttachmentsStart,
+  EventType.ExtractionAttachmentsContinue
+];

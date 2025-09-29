@@ -1,106 +1,80 @@
-import { TrelloClient, parseApiCredentials, TrelloApiResponse } from '../../core/trello-client';
 import { FunctionInput } from '../../core/types';
+import { TrelloClient } from '../../core/trello-client';
 
 export interface FetchBoardsResult {
-  success: boolean;
+  boards?: any[];
   status_code: number;
   api_delay: number;
   message: string;
-  raw_response: any;
-  boards?: any[];
 }
 
 /**
  * Function that fetches boards from Trello API.
  * 
  * @param events Array of function input events
- * @returns Object containing the fetched boards and API response metadata
+ * @returns Object containing boards data and API response info
  */
 export async function run(events: FunctionInput[]): Promise<FetchBoardsResult> {
   try {
     // Process only the first event
     if (!events || events.length === 0) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
         message: 'Fetch boards failed: No events provided',
-        raw_response: null,
       };
     }
 
     const event = events[0];
     
-    // Validate required environment variable
-    const baseUrl = process.env.TRELLO_BASE_URL;
-    if (!baseUrl) {
-      return {
-        success: false,
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch boards failed: TRELLO_BASE_URL environment variable not set',
-        raw_response: null,
-      };
-    }
-
     // Extract connection data
     const connectionData = event.payload.connection_data;
     if (!connectionData || !connectionData.key) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
-        message: 'Fetch boards failed: Missing connection data or API key',
-        raw_response: null,
+        message: 'Fetch boards failed: Missing connection data',
       };
     }
 
     // Parse API credentials
-    let apiCredentials;
+    let credentials;
     try {
-      apiCredentials = parseApiCredentials(connectionData.key);
+      credentials = TrelloClient.parseCredentials(connectionData.key);
     } catch (error) {
       return {
-        success: false,
         status_code: 0,
         api_delay: 0,
         message: `Fetch boards failed: ${error instanceof Error ? error.message : String(error)}`,
-        raw_response: null,
       };
     }
 
-    // Initialize Trello client
+    // Initialize Trello client and fetch boards
     const trelloClient = new TrelloClient({
-      baseUrl: baseUrl,
-      apiKey: apiCredentials.apiKey,
-      token: apiCredentials.token,
+      apiKey: credentials.apiKey,
+      token: credentials.token,
     });
 
-    // Fetch boards for the authenticated member
-    const response: TrelloApiResponse = await trelloClient.getMemberBoards('me');
+    const response = await trelloClient.getBoardsForMember('me');
 
-    // Determine success based on response
-    const success = response.status_code === 200 && !!response.data;
-
-    return {
-      success: success,
+    const result: FetchBoardsResult = {
       status_code: response.status_code,
       api_delay: response.api_delay,
-      message: success 
-        ? `Successfully fetched ${Array.isArray(response.data) ? response.data.length : 0} boards`
-        : response.message,
-      raw_response: response.raw_response,
-      boards: success ? response.data : undefined,
+      message: response.message,
     };
 
+    // Include boards data if successful
+    if (response.status_code === 200 && response.data) {
+      result.boards = response.data;
+    }
+
+    return result;
   } catch (error) {
     console.error('Error in fetch_boards function:', error);
     return {
-      success: false,
       status_code: 0,
       api_delay: 0,
       message: `Fetch boards failed: ${error instanceof Error ? error.message : String(error)}`,
-      raw_response: null,
     };
   }
 }

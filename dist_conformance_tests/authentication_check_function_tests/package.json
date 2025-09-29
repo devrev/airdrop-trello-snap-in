@@ -1,7 +1,7 @@
 {
   "name": "trello-snap-in-conformance-tests",
   "version": "1.0.0",
-  "description": "Conformance tests for Trello snap-in",
+  "description": "Conformance tests for Trello snap-in authentication functionality",
   "scripts": {
     "test": "jest --testTimeout=120000"
   },

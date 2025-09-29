@@ -1,32 +1,46 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError, AxiosRequestConfig } from 'axios';
-import { TrelloClientConfig, TrelloApiResponse, sanitizeResponse, handleApiError } from './trello-utils';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { axiosClient, ExternalSystemAttachmentStreamingResponse } from '@devrev/ts-adaas';
+import { TrelloAuth, TrelloCredentials } from './trello-auth';
+import { handleTrelloApiError } from './trello-error-handler';
+
+export interface TrelloClientOptions {
+  apiKey: string;
+  token: string;
+  baseURL?: string;
+}
+
+export interface TrelloApiResponse<T = any> {
+  data?: T;
+  status_code: number;
+  api_delay: number;
+  message: string;
+}
 
 export class TrelloClient {
   private axiosInstance: AxiosInstance;
-  private apiKey: string;
-  private token: string;
+  private auth: TrelloAuth;
 
-  constructor(config: TrelloClientConfig) {
-    this.apiKey = config.apiKey;
-    this.token = config.token;
+  constructor(options: TrelloClientOptions) {
+    this.auth = new TrelloAuth({
+      apiKey: options.apiKey,
+      token: options.token,
+    });
     
     this.axiosInstance = axios.create({
-      baseURL: config.baseUrl,
+      baseURL: options.baseURL || 'https://api.trello.com/1',
       timeout: 30000,
     });
   }
 
   /**
-   * Get member information by ID
-   * @param memberId The member ID (use "me" for current authenticated user)
-   * @returns Promise with member data and API response metadata
+   * Get current authenticated member information
    */
-  async getMember(memberId: string): Promise<TrelloApiResponse> {
+  async getCurrentMember(): Promise<TrelloApiResponse> {
     try {
-      const response: AxiosResponse = await this.axiosInstance.get(`/members/${memberId}`, {
+      const response: AxiosResponse = await this.axiosInstance.get('/members/me', {
         params: {
-          key: this.apiKey,
-          token: this.token,
+          key: this.auth['apiKey'],
+          token: this.auth['token'],
         },
       });
 
@@ -34,25 +48,22 @@ export class TrelloClient {
         data: response.data,
         status_code: response.status,
         api_delay: 0,
-        message: 'Successfully retrieved member information',
-        raw_response: sanitizeResponse(response),
+        message: 'Successfully authenticated with Trello API',
       };
-    } catch (error) {
-      return handleApiError(error as AxiosError, 'Failed to retrieve member information');
+    } catch (error: any) {
+      return handleTrelloApiError(error);
     }
   }
 
   /**
    * Get boards for a member
-   * @param memberId The member ID (use "me" for current authenticated user)
-   * @returns Promise with boards data and API response metadata
    */
-  async getMemberBoards(memberId: string): Promise<TrelloApiResponse> {
+  async getBoardsForMember(memberId: string = 'me'): Promise<TrelloApiResponse> {
     try {
       const response: AxiosResponse = await this.axiosInstance.get(`/members/${memberId}/boards`, {
         params: {
-          key: this.apiKey,
-          token: this.token,
+          key: this.auth['apiKey'],
+          token: this.auth['token'],
         },
       });
 
@@ -60,25 +71,22 @@ export class TrelloClient {
         data: response.data,
         status_code: response.status,
         api_delay: 0,
-        message: 'Successfully retrieved boards',
-        raw_response: sanitizeResponse(response),
+        message: 'Successfully fetched boards from Trello API',
       };
-    } catch (error) {
-      return handleApiError(error as AxiosError, 'Failed to retrieve boards');
+    } catch (error: any) {
+      return handleTrelloApiError(error);
     }
   }
 
   /**
    * Get members of an organization
-   * @param organizationId The organization ID
-   * @returns Promise with organization members data and API response metadata
    */
   async getOrganizationMembers(organizationId: string): Promise<TrelloApiResponse> {
     try {
       const response: AxiosResponse = await this.axiosInstance.get(`/organizations/${organizationId}/members`, {
         params: {
-          key: this.apiKey,
-          token: this.token,
+          key: this.auth['apiKey'],
+          token: this.auth['token'],
         },
       });
 
@@ -86,95 +94,123 @@ export class TrelloClient {
         data: response.data,
         status_code: response.status,
         api_delay: 0,
-        message: 'Successfully retrieved organization members',
-        raw_response: sanitizeResponse(response),
+        message: 'Successfully fetched organization members from Trello API',
       };
-    } catch (error) {
-      return handleApiError(
-        error as AxiosError, 
-        'Failed to retrieve organization members'
-      );
+    } catch (error: any) {
+      const errorResponse = handleTrelloApiError(error);
+      // Override generic 404 message for organization-specific context
+      if (errorResponse.status_code === 404) {
+        errorResponse.message = 'Organization not found';
+      }
+      return errorResponse;
     }
   }
 
   /**
-   * Get cards for a board
-   * @param boardId The board ID
-   * @param options Optional parameters (limit, before)
-   * @returns Promise with cards data and API response metadata
+   * Get cards for a board with pagination support
    */
-  async getBoardCards(boardId: string, options: { limit?: number; before?: string } = {}): Promise<TrelloApiResponse> {
+  async getBoardCards(boardId: string, limit: number, before?: string): Promise<TrelloApiResponse> {
     try {
+      const params: any = {
+        key: this.auth['apiKey'],
+        token: this.auth['token'],
+        attachments: 'true',
+        limit: limit,
+      };
+
+      if (before) {
+        params.before = before;
+      }
+
       const response: AxiosResponse = await this.axiosInstance.get(`/boards/${boardId}/cards`, {
-        params: {
-          key: this.apiKey,
-          token: this.token,
-          limit: options.limit,
-          before: options.before,
-          attachments: true
-        },
+        params,
       });
 
       return {
         data: response.data,
         status_code: response.status,
         api_delay: 0,
-        message: 'Successfully retrieved board cards',
-        raw_response: sanitizeResponse(response),
+        message: 'Successfully fetched board cards from Trello API',
       };
-    } catch (error) {
-      return handleApiError(
-        error as AxiosError, 
-        'Failed to retrieve board cards'
-      );
+    } catch (error: any) {
+      const errorResponse = handleTrelloApiError(error);
+      // Override generic 404 message for board-specific context
+      if (errorResponse.status_code === 404) {
+        errorResponse.message = 'Board not found';
+      }
+      return errorResponse;
     }
   }
 
   /**
-   * Download an attachment from a card
-   * @param idCard The card ID
-   * @param idAttachment The attachment ID
-   * @param fileName The original filename of the attachment
-   * @returns Promise with attachment data and API response metadata
+   * Download an attachment file from a card using OAuth 1.0a authorization
    */
-  async downloadAttachment(idCard: string, idAttachment: string, fileName: string): Promise<TrelloApiResponse> {
+  async downloadAttachment(idCard: string, idAttachment: string, fileName: string): Promise<TrelloApiResponse<Buffer>> {
     try {
-      // This endpoint requires OAuth 1.0a authorization with oauth_consumer_key and oauth_token
-      // encoded in the Authorization header
-      const authHeader = `OAuth oauth_consumer_key="${this.apiKey}", oauth_token="${this.token}"`;
+      // Generate OAuth 1.0a authorization header
+      const authHeader = this.auth.generateOAuthHeader();
       
-      const config: AxiosRequestConfig = {
-        headers: {
-          Authorization: authHeader
-        },
-        responseType: 'arraybuffer'
-      };
-
       const response: AxiosResponse = await this.axiosInstance.get(
         `/cards/${idCard}/attachments/${idAttachment}/download/${fileName}`,
-        config
+        {
+          headers: {
+            'Authorization': authHeader,
+          },
+          responseType: 'arraybuffer', // Handle binary data
+        }
       );
 
-      // Convert binary data to base64
-      const contentType = response.headers['content-type'] || 'application/octet-stream';
-      const content = Buffer.from(response.data).toString('base64');
+      // Convert ArrayBuffer to Buffer for proper JSON serialization
+      const binaryData = Buffer.from(response.data);
 
       return {
-        data: {
-          content,
-          contentType,
-          fileName
-        },
+        data: binaryData,
         status_code: response.status,
         api_delay: 0,
-        message: 'Successfully downloaded attachment',
-        raw_response: sanitizeResponse(response),
+        message: 'Successfully downloaded attachment from Trello API',
       };
-    } catch (error) {
-      return handleApiError(error as AxiosError, 'Failed to download attachment');
+    } catch (error: any) {
+      return handleTrelloApiError(error);
     }
   }
-}
 
-// Re-export from trello-utils for backward compatibility
-export { TrelloApiResponse, TrelloClientConfig, parseApiCredentials } from './trello-utils';
+  /**
+   * Stream an attachment from a URL with proper authentication
+   */
+  async streamAttachment(url: string): Promise<ExternalSystemAttachmentStreamingResponse> {
+    try {
+      const headers: any = {
+        'Accept-Encoding': 'identity',
+      };
+
+      // If the URL is a Trello API URL, use OAuth 1.0a authorization
+      if (url.includes('api.trello.com')) {
+        headers['Authorization'] = this.auth.generateOAuthHeader();
+      }
+
+      const fileStreamResponse = await axiosClient.get(url, {
+        responseType: 'stream',
+        headers,
+      });
+
+      // Check if we were rate limited
+      if (fileStreamResponse.status === 429) {
+        const retryAfter = fileStreamResponse.headers['retry-after'];
+        const delay = retryAfter ? Math.ceil((new Date(retryAfter).getTime() - Date.now()) / 1000) : 5;
+        return { delay };
+      }
+
+      return { httpStream: fileStreamResponse };
+    } catch (error) {
+      console.error('Error streaming attachment:', error);
+      return { error: { message: 'Error while fetching attachment from URL.' } };
+    }
+  }
+
+  /**
+   * Parse API key and token from connection data key field
+   */
+  static parseCredentials(connectionKey: string): TrelloCredentials {
+    return TrelloAuth.parseCredentials(connectionKey);
+  }
+}

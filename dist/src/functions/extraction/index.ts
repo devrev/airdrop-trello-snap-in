@@ -2,36 +2,11 @@ import { spawn } from '@devrev/ts-adaas';
 import { EventType } from '@devrev/ts-adaas';
 import { FunctionInput } from '../../core/types';
 import { convertToAirdropEvent } from '../../core/utils';
-import initialDomainMapping from '../get_initial_domain_mapping/initial_domain_mapping.json';
+import { ExtractorState } from './types';
+import initialDomainMapping from '../../initial-domain-mapping.json';
 
 /**
- * Type definition for the extraction state
- */
-export type ExtractorState = {
-  users: {
-    completed: boolean;
-  };
-  cards: {
-    completed: boolean;
-    before?: string;
-    modifiedSince?: string;
-  };
-  attachments: {
-    completed: boolean;
-  };
-};
-
-/**
- * Initial state for the extraction process
- */
-const initialState: ExtractorState = {
-  users: { completed: false },
-  cards: { completed: false },
-  attachments: { completed: false }
-};
-
-/**
- * Function that handles the extraction workflow.
+ * The Extraction Function that handles data extraction from Trello API.
  * 
  * @param events Array of function input events
  * @returns Object indicating the function execution status
@@ -47,40 +22,65 @@ export async function run(events: FunctionInput[]): Promise<{ success: boolean, 
     const airdropEvent = convertToAirdropEvent(event);
 
     // Check if the event type is supported
-    if (
-      airdropEvent.payload.event_type !== EventType.ExtractionExternalSyncUnitsStart && 
-      airdropEvent.payload.event_type !== EventType.ExtractionMetadataStart &&
-      airdropEvent.payload.event_type !== EventType.ExtractionDataStart &&
-      airdropEvent.payload.event_type !== EventType.ExtractionDataContinue &&
-      airdropEvent.payload.event_type !== 'EXTRACTION_ATTACHMENTS_START' &&
-      airdropEvent.payload.event_type !== 'EXTRACTION_ATTACHMENTS_CONTINUE'
-    ) {
+    const supportedEventTypes = [
+      EventType.ExtractionExternalSyncUnitsStart,
+      EventType.ExtractionMetadataStart,
+      EventType.ExtractionDataStart,
+      EventType.ExtractionDataContinue,
+      EventType.ExtractionAttachmentsStart,
+      EventType.ExtractionAttachmentsContinue
+    ];
+
+    if (!supportedEventTypes.includes(airdropEvent.payload.event_type as EventType)) {
       return {
         success: false,
-        message: `Unexpected event type: ${airdropEvent.payload.event_type}. Expected: ${EventType.ExtractionExternalSyncUnitsStart}, ${EventType.ExtractionMetadataStart}, ${EventType.ExtractionDataStart}, ${EventType.ExtractionDataContinue}, EXTRACTION_ATTACHMENTS_START, or EXTRACTION_ATTACHMENTS_CONTINUE`
+        message: `Unexpected event type: ${airdropEvent.payload.event_type}. Expected: ${supportedEventTypes.join(' or ')}`
       };
     }
 
+    // Define initial state
+    const initialState: ExtractorState = {
+      users: { completed: false },
+      cards: { completed: false },
+      attachments: { completed: false }
+    };
+
     // Spawn a worker thread to handle the extraction
-    await spawn({
+    await spawn<ExtractorState>({
       event: airdropEvent,
       initialState,
       workerPath: `${__dirname}/worker.ts`,
       initialDomainMapping,
       options: {
-        timeout: 10 * 60 * 1000 // 10 minutes in milliseconds
+        timeout: 10 * 60 * 1000, // 10 minutes
       }
     });
 
+    // Determine success message based on event type
+    let successMessage: string;
+    if (airdropEvent.payload.event_type === EventType.ExtractionExternalSyncUnitsStart) {
+      successMessage = 'External sync units extraction initiated successfully';
+    } else if (airdropEvent.payload.event_type === EventType.ExtractionMetadataStart) {
+      successMessage = 'Metadata extraction initiated successfully';
+    } else if (airdropEvent.payload.event_type === EventType.ExtractionDataStart || 
+               airdropEvent.payload.event_type === EventType.ExtractionDataContinue) {
+      successMessage = 'Data extraction initiated successfully';
+    } else if (airdropEvent.payload.event_type === EventType.ExtractionAttachmentsStart || 
+               airdropEvent.payload.event_type === EventType.ExtractionAttachmentsContinue) {
+      successMessage = 'Attachments extraction initiated successfully';
+    } else {
+      successMessage = 'Extraction initiated successfully';
+    }
+
     return {
       success: true,
-      message: 'Extraction process initiated successfully'
+      message: successMessage
     };
   } catch (error) {
     console.error('Error in extraction function:', error);
     return {
       success: false,
-      message: `Extraction process failed: ${error instanceof Error ? error.message : String(error)}`
+      message: `Extraction failed: ${error instanceof Error ? error.message : String(error)}`
     };
   }
 }

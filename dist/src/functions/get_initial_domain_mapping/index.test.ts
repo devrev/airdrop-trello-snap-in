@@ -1,147 +1,149 @@
 import { run } from './index';
-import { FunctionInput } from '../../core/types';
-import initialDomainMapping from './initial_domain_mapping.json';
+import initialDomainMapping from '../../initial-domain-mapping.json';
+import {
+  createMockEvent,
+  getUsersMapping,
+  getCardsMapping,
+  getUsersStockFieldMappings,
+  getCardsStockFieldMappings,
+  getUsersShard,
+  getCardsShard,
+  expectedUsersDefaultMapping,
+  expectedCardsDefaultMapping,
+  expectedFullNameMapping,
+  expectedDisplayNameMapping,
+  expectedTitleMapping,
+  expectedItemUrlFieldMapping,
+  expectedBodyMapping,
+  expectedOwnedByIdsMapping,
+  expectedPriorityMapping,
+  expectedStageMapping,
+  expectedAppliesToPartIdMapping,
+  expectedDevrevLeafType,
+  expectedCardsDevrevLeafType
+} from './test-helpers';
 
 describe('get_initial_domain_mapping function', () => {
-  const mockEvent: FunctionInput = {
-    payload: {},
-    context: {
-      dev_oid: 'test-dev-oid',
-      source_id: 'test-source-id',
-      snap_in_id: 'test-snap-in-id',
-      snap_in_version_id: 'test-snap-in-version-id',
-      service_account_id: 'test-service-account-id',
-      secrets: {
-        service_account_token: 'test-token'
-      }
-    },
-    execution_metadata: {
-      request_id: 'test-request-id',
-      function_name: 'get_initial_domain_mapping',
-      event_type: 'test-event-type',
-      devrev_endpoint: 'https://api.devrev.ai'
-    },
-    input_data: {
-      global_values: {},
-      event_sources: {}
-    }
-  };
-
-  it('should return the Initial Domain Mapping JSON object', async () => {
-    const result = await run([mockEvent]);
+  it('should return initial domain mapping when given valid events', async () => {
+    const result = await run([createMockEvent()]);
     
     expect(result).toEqual({
+      initial_domain_mapping: initialDomainMapping,
       success: true,
-      message: 'Successfully retrieved Initial Domain Mapping',
-      mapping: initialDomainMapping
+      message: 'Initial domain mapping retrieved successfully'
     });
   });
 
-  it('should have the required record type mappings', async () => {
-    const result = await run([mockEvent]);
+  it('should return the correct structure for users record type mapping', async () => {
+    const result = await run([createMockEvent()]);
+    const usersMapping = getUsersMapping(result.initial_domain_mapping);
     
-    // Check if users record type mapping exists
-    expect(result.mapping.additional_mappings.record_type_mappings).toHaveProperty('users');
+    expect(usersMapping).toBeDefined();
+    expect(usersMapping.default_mapping).toEqual(expectedUsersDefaultMapping);
     
-    // Check default mapping
-    const usersMapping = result.mapping.additional_mappings.record_type_mappings.users;
-    expect(usersMapping.default_mapping.object_type).toBe('devu');
-    expect(usersMapping.default_mapping.object_category).toBe('stock');
-    
-    // Check possible record type mappings
     expect(usersMapping.possible_record_type_mappings).toHaveLength(1);
-    const mapping = usersMapping.possible_record_type_mappings[0];
-    expect(mapping.forward).toBe(true);
-    expect(mapping.reverse).toBe(false);
-    expect(mapping.devrev_leaf_type).toBe('devu');
     
-    // Check shard mode
-    expect(mapping.shard.mode).toBe('create_shard');
-    
-    // Check stock field mappings
-    const stockFieldMappings = mapping.shard.stock_field_mappings;
-    
-    // Check display_name mapping
-    expect(stockFieldMappings).toHaveProperty('display_name');
-    expect(stockFieldMappings.display_name.forward).toBe(true);
-    expect(stockFieldMappings.display_name.reverse).toBe(false);
-    expect(stockFieldMappings.display_name.primary_external_field).toBe('username');
-    expect(stockFieldMappings.display_name.transformation_method_for_set.transformation_method).toBe('use_directly');
-    
-    // Check full_name mapping
-    expect(stockFieldMappings).toHaveProperty('full_name');
-    expect(stockFieldMappings.full_name.forward).toBe(true);
-    expect(stockFieldMappings.full_name.reverse).toBe(false);
-    expect(stockFieldMappings.full_name.primary_external_field).toBe('full_name');
-    expect(stockFieldMappings.full_name.transformation_method_for_set.transformation_method).toBe('use_directly');
+    const possibleMapping = usersMapping.possible_record_type_mappings[0];
+    expect(possibleMapping.devrev_leaf_type).toBe('devu');
+    expect(possibleMapping.forward).toBe(true);
+    expect(possibleMapping.reverse).toBe(false);
+    expect(possibleMapping.shard.mode).toBe('create_shard');
   });
 
-  it('should have the required cards record type mapping', async () => {
-    const result = await run([mockEvent]);
+  it('should have correct stock field mappings for full_name', async () => {
+    const result = await run([createMockEvent()]);
+    const stockFieldMappings = getUsersStockFieldMappings(result.initial_domain_mapping);
     
-    // Check if cards record type mapping exists
-    expect(result.mapping.additional_mappings.record_type_mappings).toHaveProperty('cards');
+    expect(stockFieldMappings.full_name).toEqual(expectedFullNameMapping);
+  });
+
+  it('should have correct stock field mappings for display_name', async () => {
+    const result = await run([createMockEvent()]);
+    const stockFieldMappings = getUsersStockFieldMappings(result.initial_domain_mapping);
     
-    // Check default mapping
-    const cardsMapping = result.mapping.additional_mappings.record_type_mappings.cards;
-    expect(cardsMapping.default_mapping.object_type).toBe('issue');
-    expect(cardsMapping.default_mapping.object_category).toBe('stock');
+    expect(stockFieldMappings.display_name).toEqual(expectedDisplayNameMapping);
+  });
+
+  it('should have correct devrev_leaf_type in shard', async () => {
+    const result = await run([createMockEvent()]);
+    const shard = getUsersShard(result.initial_domain_mapping);
     
-    // Check possible record type mappings
+    expect(shard.devrev_leaf_type).toEqual(expectedDevrevLeafType);
+  });
+
+  it('should return the correct structure for cards record type mapping', async () => {
+    const result = await run([createMockEvent()]);
+    const cardsMapping = getCardsMapping(result.initial_domain_mapping);
+    
+    expect(cardsMapping).toBeDefined();
+    expect(cardsMapping.default_mapping).toEqual(expectedCardsDefaultMapping);
+    
     expect(cardsMapping.possible_record_type_mappings).toHaveLength(1);
-    const mapping = cardsMapping.possible_record_type_mappings[0];
-    expect(mapping.forward).toBe(true);
-    expect(mapping.reverse).toBe(false);
-    expect(mapping.devrev_leaf_type).toBe('issue');
     
-    // Check shard mode
-    expect(mapping.shard.mode).toBe('create_shard');
+    const possibleMapping = cardsMapping.possible_record_type_mappings[0];
+    expect(possibleMapping.devrev_leaf_type).toBe('issue');
+    expect(possibleMapping.forward).toBe(true);
+    expect(possibleMapping.reverse).toBe(false);
+    expect(possibleMapping.shard.mode).toBe('create_shard');
+  });
+
+  it('should have correct stock field mappings for cards external fields', async () => {
+    const result = await run([createMockEvent()]);
+    const stockFieldMappings = getCardsStockFieldMappings(result.initial_domain_mapping);
     
-    // Check stock field mappings
-    const stockFieldMappings = mapping.shard.stock_field_mappings;
+    expect(stockFieldMappings.title).toEqual(expectedTitleMapping);
+    expect(stockFieldMappings.item_url_field).toEqual(expectedItemUrlFieldMapping);
+    expect(stockFieldMappings.body).toEqual(expectedBodyMapping);
+    expect(stockFieldMappings.owned_by_ids).toEqual(expectedOwnedByIdsMapping);
+  });
+
+  it('should have correct stock field mappings for cards fixed values', async () => {
+    const result = await run([createMockEvent()]);
+    const stockFieldMappings = getCardsStockFieldMappings(result.initial_domain_mapping);
     
-    // Check title mapping (External Transformation Method)
-    expect(stockFieldMappings).toHaveProperty('title');
-    expect(stockFieldMappings.title.forward).toBe(true);
-    expect(stockFieldMappings.title.reverse).toBe(false);
-    expect(stockFieldMappings.title.primary_external_field).toBe('name');
-    expect(stockFieldMappings.title.transformation_method_for_set.transformation_method).toBe('use_directly');
+    expect(stockFieldMappings.priority).toEqual(expectedPriorityMapping);
+    expect(stockFieldMappings.stage).toEqual(expectedStageMapping);
+  });
+
+  it('should have correct stock field mapping for cards DevRev record reference', async () => {
+    const result = await run([createMockEvent()]);
+    const stockFieldMappings = getCardsStockFieldMappings(result.initial_domain_mapping);
     
-    // Check item_url_field mapping (External Transformation Method)
-    expect(stockFieldMappings).toHaveProperty('item_url_field');
-    expect(stockFieldMappings.item_url_field.forward).toBe(true);
-    expect(stockFieldMappings.item_url_field.reverse).toBe(false);
-    expect(stockFieldMappings.item_url_field.primary_external_field).toBe('url');
-    expect(stockFieldMappings.item_url_field.transformation_method_for_set.transformation_method).toBe('use_directly');
+    expect(stockFieldMappings.applies_to_part_id).toEqual(expectedAppliesToPartIdMapping);
+  });
+
+  it('should have correct devrev_leaf_type in cards shard', async () => {
+    const result = await run([createMockEvent()]);
+    const shard = getCardsShard(result.initial_domain_mapping);
     
-    // Check body mapping (External Transformation Method - rich text)
-    expect(stockFieldMappings).toHaveProperty('body');
-    expect(stockFieldMappings.body.forward).toBe(true);
-    expect(stockFieldMappings.body.reverse).toBe(false);
-    expect(stockFieldMappings.body.primary_external_field).toBe('description');
-    expect(stockFieldMappings.body.transformation_method_for_set.transformation_method).toBe('use_rich_text');
+    expect(shard.devrev_leaf_type).toEqual(expectedCardsDevrevLeafType);
+  });
+
+  it('should return an error when no events are provided', async () => {
+    const result = await run([]);
     
-    // Check owned_by_ids mapping (External Transformation Method)
-    expect(stockFieldMappings).toHaveProperty('owned_by_ids');
-    expect(stockFieldMappings.owned_by_ids.forward).toBe(true);
-    expect(stockFieldMappings.owned_by_ids.reverse).toBe(false);
-    expect(stockFieldMappings.owned_by_ids.primary_external_field).toBe('id_members');
-    expect(stockFieldMappings.owned_by_ids.transformation_method_for_set.transformation_method).toBe('use_directly');
+    expect(result).toEqual({
+      initial_domain_mapping: {},
+      success: false,
+      message: 'Get initial domain mapping failed: No events provided'
+    });
+  });
+
+  it('should handle undefined events array', async () => {
+    // @ts-ignore - Testing invalid input
+    const result = await run(undefined);
     
-    // Check priority mapping (Fixed Transformation Method)
-    expect(stockFieldMappings).toHaveProperty('priority');
-    expect(stockFieldMappings.priority.transformation_method_for_set.transformation_method).toBe('use_fixed_value');
-    expect(stockFieldMappings.priority.transformation_method_for_set.enum).toBe('P2');
+    expect(result).toEqual({
+      initial_domain_mapping: {},
+      success: false,
+      message: 'Get initial domain mapping failed: No events provided'
+    });
+  });
+
+  it('should have both users and cards record type mappings', async () => {
+    const result = await run([createMockEvent()]);
+    const recordTypeMappings = result.initial_domain_mapping.additional_mappings.record_type_mappings;
     
-    // Check stage mapping (Fixed Transformation Method)
-    expect(stockFieldMappings).toHaveProperty('stage');
-    expect(stockFieldMappings.stage.transformation_method_for_set.transformation_method).toBe('use_fixed_value');
-    expect(stockFieldMappings.stage.transformation_method_for_set.enum).toBe('triage');
-    
-    // Check applies_to_part_id mapping (DevRev Record Transformation Method)
-    expect(stockFieldMappings).toHaveProperty('applies_to_part_id');
-    expect(stockFieldMappings.applies_to_part_id.transformation_method_for_set.transformation_method).toBe('use_devrev_record');
-    expect(stockFieldMappings.applies_to_part_id.transformation_method_for_set.leaf_type.object_type).toBe('product');
-    expect(stockFieldMappings.applies_to_part_id.transformation_method_for_set.leaf_type.object_category).toBe('stock');
+    expect(Object.keys(recordTypeMappings)).toEqual(['users', 'cards']);
   });
 });

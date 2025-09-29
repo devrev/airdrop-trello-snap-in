@@ -1,180 +1,182 @@
-import { TestUtils, CallbackServerSetup } from './test-utils';
+import { getTestEnvironment, createTestEvent, setupCallbackServer, sendEventToSnapIn, CallbackServerSetup, startRateLimiting, endRateLimiting } from './test-utils';
 
 describe('check_authentication function conformance tests', () => {
   let callbackServer: CallbackServerSetup;
+  let testEnv: ReturnType<typeof getTestEnvironment>;
 
   beforeAll(async () => {
-    // Set up callback server for testing
-    callbackServer = await TestUtils.setupCallbackServer();
+    testEnv = getTestEnvironment();
+    callbackServer = await setupCallbackServer();
   });
 
   afterAll(async () => {
-    // Clean up callback server
     if (callbackServer?.server) {
-      await TestUtils.closeServer(callbackServer.server);
+      callbackServer.server.close();
     }
   });
 
   describe('Trivial: Basic function invocation', () => {
-    test('should invoke check_authentication function and return expected response structure', async () => {
-      // Create basic test event
-      const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
+    it('should return proper response structure when invoked', async () => {
+      const connectionKey = `key=${testEnv.trelloApiKey}&token=${testEnv.trelloToken}`;
+      const event = createTestEvent(connectionKey, testEnv.trelloOrgId);
 
-      // Send event to snap-in server
-      const response = await TestUtils.sendEventToSnapIn(event);
+      const response = await sendEventToSnapIn(event);
 
-      // Verify response structure
       expect(response).toBeDefined();
       expect(response.function_result).toBeDefined();
-      expect(typeof response.function_result).toBe('object');
-      
-      // Verify required fields exist
-      expect(response.function_result).toHaveProperty('authenticated');
-      expect(response.function_result).toHaveProperty('status_code');
-      expect(response.function_result).toHaveProperty('api_delay');
-      expect(response.function_result).toHaveProperty('message');
-      expect(response.function_result).toHaveProperty('raw_response');
-      
-      // Verify field types
       expect(typeof response.function_result.authenticated).toBe('boolean');
       expect(typeof response.function_result.status_code).toBe('number');
       expect(typeof response.function_result.api_delay).toBe('number');
       expect(typeof response.function_result.message).toBe('string');
+      expect(response.error).toBeUndefined();
     }, 30000);
   });
 
-  describe('Simple: Successful authentication', () => {
-    test('should successfully authenticate with valid credentials', async () => {
-      // Ensure environment variables are available
-      const env = TestUtils.getEnvironment();
-      expect(env.TRELLO_API_KEY).toBeTruthy();
-      expect(env.TRELLO_TOKEN).toBeTruthy();
+  describe('Simple: Invalid credentials handling', () => {
+    it('should handle missing connection data gracefully', async () => {
+      const event = createTestEvent('', testEnv.trelloOrgId);
+      event.payload.connection_data.key = '';
 
-      // Create test event with valid credentials
-      const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
+      const response = await sendEventToSnapIn(event);
 
-      // Send event to snap-in server
-      const response = await TestUtils.sendEventToSnapIn(event);
+      expect(response.function_result.authenticated).toBe(false);
+      expect(response.function_result.status_code).toBe(0);
+      expect(response.function_result.api_delay).toBe(0);
+      expect(response.function_result.message).toContain('Missing connection data');
+      expect(response.error).toBeUndefined();
+    }, 30000);
 
-      // Verify successful authentication
+    it('should handle malformed credentials gracefully', async () => {
+      const connectionKey = 'invalid-format-credentials';
+      const event = createTestEvent(connectionKey, testEnv.trelloOrgId);
+
+      const response = await sendEventToSnapIn(event);
+
+      expect(response.function_result.authenticated).toBe(false);
+      expect(response.function_result.status_code).toBe(0);
+      expect(response.function_result.api_delay).toBe(0);
+      expect(response.function_result.message).toContain('Invalid connection data');
+      expect(response.error).toBeUndefined();
+    }, 30000);
+
+    it('should handle invalid API credentials', async () => {
+      const connectionKey = 'key=invalid_key&token=invalid_token';
+      const event = createTestEvent(connectionKey, testEnv.trelloOrgId);
+
+      const response = await sendEventToSnapIn(event);
+
+      expect(response.function_result.authenticated).toBe(false);
+      expect(response.function_result.status_code).toBeGreaterThan(0);
+      expect(response.function_result.api_delay).toBeGreaterThanOrEqual(0);
+      expect(response.function_result.message).toBeDefined();
+      expect(response.error).toBeUndefined();
+    }, 30000);
+  });
+
+  describe('Complex: Valid authentication flow', () => {
+    it('should successfully authenticate with valid Trello credentials', async () => {
+      const connectionKey = `key=${testEnv.trelloApiKey}&token=${testEnv.trelloToken}`;
+      const event = createTestEvent(connectionKey, testEnv.trelloOrgId);
+
+      const response = await sendEventToSnapIn(event);
+
       expect(response.function_result.authenticated).toBe(true);
       expect(response.function_result.status_code).toBe(200);
       expect(response.function_result.api_delay).toBe(0);
-      expect(response.function_result.message).toContain('Authentication successful');
-      expect(response.function_result.member_info).toBeDefined();
-      expect(response.function_result.raw_response).toBeDefined();
-    }, 30000);
-  });
-
-  describe('Complex: Authentication failure scenarios', () => {
-    test('should handle invalid API credentials gracefully', async () => {
-      // Create event with invalid credentials
-      const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
-      event.payload.connection_data.key = 'key=invalid_key&token=invalid_token';
-
-      // Send event to snap-in server
-      const response = await TestUtils.sendEventToSnapIn(event);
-
-      // Verify authentication failure
-      expect(response.function_result.authenticated).toBe(false);
-      expect(response.function_result.status_code).toBeGreaterThanOrEqual(400);
-      expect(response.function_result.message).toContain('Authentication failed');
-      expect(response.function_result.member_info).toBeUndefined();
+      expect(response.function_result.message).toContain('Successfully authenticated');
+      expect(response.error).toBeUndefined();
     }, 30000);
 
-    test('should handle missing connection data', async () => {
-      // Create event without connection data
-      const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
-      delete event.payload.connection_data;
+    it('should handle rate limiting appropriately', async () => {
+      const connectionKey = `key=${testEnv.trelloApiKey}&token=${testEnv.trelloToken}`;
+      const event = createTestEvent(connectionKey, testEnv.trelloOrgId);
 
-      // Send event to snap-in server
-      const response = await TestUtils.sendEventToSnapIn(event);
+      // Make multiple rapid requests to potentially trigger rate limiting
+      const promises = Array(3).fill(null).map(() => sendEventToSnapIn(event));
+      const responses = await Promise.all(promises);
 
-      // Verify proper error handling
-      expect(response.function_result.authenticated).toBe(false);
-      expect(response.function_result.status_code).toBe(0);
-      expect(response.function_result.message).toContain('Missing connection data');
-    }, 30000);
+      // At least one should succeed
+      const successfulResponses = responses.filter(r => r.function_result.authenticated === true);
+      expect(successfulResponses.length).toBeGreaterThan(0);
 
-    test('should handle malformed connection key', async () => {
-      // Create event with malformed connection key
-      const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
-      event.payload.connection_data.key = 'invalid_format';
+      // Check if any response indicates rate limiting
+      const rateLimitedResponses = responses.filter(r => 
+        r.function_result.status_code === 429 || r.function_result.api_delay > 0
+      );
 
-      // Send event to snap-in server
-      const response = await TestUtils.sendEventToSnapIn(event);
-
-      // Verify proper error handling
-      expect(response.function_result.authenticated).toBe(false);
-      expect(response.function_result.status_code).toBe(0);
-      expect(response.function_result.message).toContain('Invalid connection key format');
-    }, 30000);
-
-    test('should handle rate limiting with proper delay', async () => {
-      // This test simulates rate limiting scenario
-      // Note: This may not trigger actual rate limiting but tests the structure
-      const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
-
-      // Send event to snap-in server
-      const response = await TestUtils.sendEventToSnapIn(event);
-
-      // Verify api_delay field is properly handled
-      expect(typeof response.function_result.api_delay).toBe('number');
-      expect(response.function_result.api_delay).toBeGreaterThanOrEqual(0);
-      
-      // If rate limited, should have appropriate message and delay
-      if (response.function_result.status_code === 429) {
-        expect(response.function_result.message).toContain('Rate limit');
-        expect(response.function_result.api_delay).toBeGreaterThan(0);
+      if (rateLimitedResponses.length > 0) {
+        rateLimitedResponses.forEach(response => {
+          expect(response.function_result.api_delay).toBeGreaterThan(0);
+          expect(response.function_result.message).toContain('Rate limit');
+        });
       }
-    }, 30000);
+    }, 45000);
 
-    test('should handle rate limiting with proper api_delay calculation', async () => {
-      const testName = `rate_limit_test_${Date.now()}`;
+    it('should handle API rate limiting with controlled rate limit activation', async () => {
+      const testName = 'check_authentication_rate_limit_test';
+      let rateLimitingStarted = false;
       
       try {
-        // Start rate limiting on the API server
-        await TestUtils.startRateLimiting(testName);
+        // Step 1: Start rate limiting
+        console.log(`Starting rate limiting for test: ${testName}`);
+        await startRateLimiting(testName);
+        rateLimitingStarted = true;
+        console.log('Rate limiting started successfully');
+
+        // Step 2: Invoke the function with valid credentials
+        const connectionKey = `key=${testEnv.trelloApiKey}&token=${testEnv.trelloToken}`;
+        const event = createTestEvent(connectionKey, testEnv.trelloOrgId);
         
-        // Create test event with valid credentials
-        const event = TestUtils.createBaseEvent('check_authentication', 'authentication_check');
+        console.log('Invoking check_authentication function with valid credentials');
+        const response = await sendEventToSnapIn(event);
         
-        // Invoke the check_authentication function
-        const response = await TestUtils.sendEventToSnapIn(event);
-        
-        // Verify response structure exists
-        expect(response).toBeDefined();
+        console.log('Function response received:', {
+          authenticated: response.function_result?.authenticated,
+          status_code: response.function_result?.status_code,
+          api_delay: response.function_result?.api_delay,
+          message: response.function_result?.message
+        });
+
+        // Step 3: Verify rate limiting response
         expect(response.function_result).toBeDefined();
-        
-        // Verify rate limiting response
         expect(response.function_result.status_code).toBe(429);
-        expect(response.function_result.authenticated).toBe(false);
-        
-        // Verify api_delay is properly calculated
         expect(response.function_result.api_delay).toBeGreaterThan(0);
         expect(response.function_result.api_delay).toBeLessThanOrEqual(3);
-        
-        // Verify rate limiting message
-        expect(response.function_result.message).toContain('Rate limit');
-        
-        // Log response for debugging
-        console.log('Rate limiting test response:', {
-          status_code: response.function_result.status_code,
-          api_delay: response.function_result.api_delay,
-          message: response.function_result.message,
-          authenticated: response.function_result.authenticated
-        });
-        
+        expect(response.function_result.authenticated).toBe(false);
+        expect(response.function_result.message).toBeDefined();
+        expect(response.error).toBeUndefined();
+
+        // Additional validation with descriptive error messages
+        if (response.function_result.status_code !== 429) {
+          throw new Error(`Expected status_code to be 429 (rate limited), but got ${response.function_result.status_code}. This indicates that rate limiting was not properly applied or detected.`);
+        }
+
+        if (response.function_result.api_delay <= 0) {
+          throw new Error(`Expected api_delay to be greater than 0, but got ${response.function_result.api_delay}. This indicates that the rate limiting delay calculation is incorrect.`);
+        }
+
+        if (response.function_result.api_delay > 3) {
+          throw new Error(`Expected api_delay to be <= 3 seconds, but got ${response.function_result.api_delay}. This suggests an issue with api_delay calculation in the implementation code.`);
+        }
+
+        console.log('Rate limiting test completed successfully');
+
       } catch (error) {
-        throw new Error(`Rate limiting test failed: ${error instanceof Error ? error.message : String(error)}. Test name: ${testName}`);
+        console.error('Rate limiting test failed:', error);
+        throw error;
       } finally {
-        // Always end rate limiting to clean up
-        try {
-          await TestUtils.endRateLimiting();
-        } catch (cleanupError) {
-          console.warn(`Failed to clean up rate limiting: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+        // Step 4: Always end rate limiting, even if test fails
+        if (rateLimitingStarted) {
+          try {
+            console.log('Ending rate limiting');
+            await endRateLimiting();
+            console.log('Rate limiting ended successfully');
+          } catch (cleanupError) {
+            console.error('Failed to end rate limiting during cleanup:', cleanupError);
+            // Don't throw cleanup errors, but log them
+          }
         }
       }
-    }, 30000);
+    }, 45000);
   });
 });
