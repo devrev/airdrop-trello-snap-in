@@ -1,8 +1,8 @@
-  - The record_type_mappings "users" should have the following properties:
-    - Default mapping should map each external user to a "devu" user object.
-    - There should be a single "possible_record_type_mappings" element, specifying:
-      - The mapping is one-way (reverse is false, forward is true).
-      - There should be no custom fields in the mapping.
-    - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
-      - field "full_name" should be mapped to "full_name".
-      - field "username" should be mapped to "display_name".
+The record_type_mappings "users" should have the following properties:
+  - Default mapping should map each external user to a "devu" user object.
+  - There should be a single "possible_record_type_mappings" element, specifying:
+    - The mapping is one-way (reverse is false, forward is true).
+    - There should be no custom fields in the mapping.
+  - The following The Stock Field Mapping Fields should be mapped using The External Transformation Method:
+    - field "full_name" should be mapped to "full_name".
+    - field "username" should be mapped to "display_name".
