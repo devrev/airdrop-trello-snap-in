@@ -83,7 +83,7 @@
 
   ***Acceptance Tests:***
 
-{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "check_authentication" %}
+  - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "check_authentication" %}
 
 - Implement The Function "fetch_boards" that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards".
 
@@ -91,13 +91,13 @@
 
   - Test the function "fetch_boards". Expect to exist a board with the name "SaaS connectors" in the result of The Function.
 
-{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_boards" %}
+  - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_boards" %}
 
 - Implement The Function "fetch_organization_members" that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members". The Organization ID should be provided in `event["payload"]["connection_data"]["org_id"]`.
 
   ***Acceptance Tests:***
 
-{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_organization_members" %}
+  - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_organization_members" %}
 
 - Implement The Function "fetch_board_cards" that uses The API to fetch The Fetched Cards for a given board using the endpoint "/boards/{id}/cards".
   - The Board ID should be provided in `event["payload"]["event_context"]["external_sync_unit_id"]`
@@ -119,7 +119,7 @@
     - Step 3: From array `card["attachments"]`, retrieve the attachment object that has property "name" equal to "devrev cover" (:= attachment)
     - Step 4: Expect `attachment["name"]` to be equal to "devrev cover".
 
-{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_board_cards" %}
+  - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_board_cards" %}
 
 - Implement The Function "download_attachment" that uses The API to download an attachment using the endpoint "/cards/{idCard}/attachments/{idAttachment}/download/{fileName}".
   - parameters "idCard", "idAttachment", and "fileName" should be provided in the `event["input_data"]["global_values"]["idCard"]`, `event["input_data"]["global_values"]["idAttachment"]`, and `event["input_data"]["global_values"]["fileName"]` respectively. All of "idCard", "idAttachment", and "fileName" should be required.
@@ -129,7 +129,7 @@
 
   - Test The Function "download_attachment" with Card ID "688725db990240b77167efef", Attachment ID "68c2be83c413a1889bde83df", and fileName "temporary-file-name.png". Expect the call to The Function to succeed.
 
-{% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "download_attachment" %}
+  - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "download_attachment" %}
 
 
 ## Generate 'initial_domain_mapping.json' and 'external_domain_metadata.json'
@@ -141,10 +141,10 @@
 ***Functional Requirements:***
 
 - Implement The Function 'get_external_domain_metadata' that generates and returns The External Domain Metadata JSON object. The External Domain Metadata JSON object should have the record type 'users'.
-{% include "mappings/external_domain_metadata_users.plain" %}
+  - {% include "mappings/external_domain_metadata_users.plain" %}
 
 - The External Domain Metadata JSON object should include the record type 'cards', while preserving any existing record types.
-{% include "mappings/external_domain_metadata_cards.plain" %}
+  - {% include "mappings/external_domain_metadata_cards.plain" %}
 
 ### Generate 'initial_domain_mapping.json'
 
@@ -153,10 +153,10 @@
 ***Functional Requirements:***
 
 - Implement The Function that generates and returns The Initial Domain Mapping JSON object. The Initial Domain Mapping JSON object should have record_type_mappings "users".
-{% include "mappings/initial_domain_mapping_users.plain" %}
+  - {% include "mappings/initial_domain_mapping_users.plain" %}
 
 - The Initial Domain Mapping JSON object should have record_type_mappings "cards", while preserving any existing mappings.
-{% include "mappings/initial_domain_mapping_cards.plain" %}
+  - {% include "mappings/initial_domain_mapping_cards.plain" %}
 
 ## Pushing data to DevRev servers
 
@@ -225,7 +225,7 @@
   - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). 
     - Expect The Callback Server to receive *a single* event with "event_type" "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE".
 
-{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_EXTERNAL_SYNC_UNITS_START", resource_name: "trello_external_sync_unit_check.json", expected_output_event_type: "EXTRACTION_EXTERNAL_SYNC_UNITS_ERROR" %}
+  - {% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_EXTERNAL_SYNC_UNITS_START", resource_name: "trello_external_sync_unit_check.json", expected_output_event_type: "EXTRACTION_EXTERNAL_SYNC_UNITS_ERROR" %}
 
 - If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow as described in the resource [metadata-extraction.md](docs/metadata-extraction.mdx). Please note that The External Domain Metadata JSON should not be normalized when pushed to the repository.
 
@@ -237,13 +237,13 @@
 
   ***Acceptance Tests:***
 
-{% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "users", expected_item_count: 9 %}
+  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "users", expected_item_count: 9 %}
 
-{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
+  - {% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
 
   - Validate The Normalization Function with the chef-cli tool (The Chef CLI) for the "users" record type:
     - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json).
-{% include "templates/chef_cli_normalization_validation.plain", record_type: "users" %}
+    - Secondly, {% include "templates/chef_cli_normalization_validation.plain", record_type: "users" %}
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' and 'users' data. To push the 'cards' data, it should:
   - If `TheExtractionStateObject["cards"]["completed"]=false`:
@@ -254,15 +254,15 @@
 
   ***Acceptance Tests:***
 
-{% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "cards", expected_item_count: 150 %}
+  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "cards", expected_item_count: 150 %}
 
-{% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_continue_test.json", artifact_name: "cards", expected_item_count: 150 %}
+  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_continue_test.json", artifact_name: "cards", expected_item_count: 150 %}
 
-{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
+  - {% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
 
   - Validate The Normalization Function with the chef-cli tool (The Chef CLI) for the "cards" record type:
     - Firstly, invoke The Extraction Function using the resource [data_extraction_test.json](test_data/data_extraction_test.json).
-{% include "templates/chef_cli_normalization_validation.plain", record_type: "cards" %}
+    - Secondly, {% include "templates/chef_cli_normalization_validation.plain", record_type: "cards" %}
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'attachments', 'cards' and 'users' data. To push the 'attachments' data, it should:
   - If `TheExtractionStateObject["cards"]["completed"]=false`:
@@ -277,19 +277,19 @@
 
   ***Acceptance Tests:***
 
-{% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "attachments", expected_item_count: 2 %}
+  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "attachments", expected_item_count: 2 %}
 
 - If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
   - Note: Streaming the attachments *MUST* be authenticated using OAuth 1.0a authorization (oauth_consumer_key and oauth_token encoded in the Authorization header).
 
   ***Acceptance Tests:***
 
-{% include "templates/attachment_extraction_acceptance_test.plain", data_extraction_resource_name: "data_extraction_test.json", attachment_extraction_resource_name: "attachments_extraction_test.json", expected_attachment_count: 2 %}
+  - {% include "templates/attachment_extraction_acceptance_test.plain", data_extraction_resource_name: "data_extraction_test.json", attachment_extraction_resource_name: "attachments_extraction_test.json", expected_attachment_count: 2 %}
 
   - Test The Extraction Function using the resource [attachments_extraction_continue_test.json](test_data/attachments_extraction_continue_test.json). 
     - Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_ATTACHMENTS_DONE".
 
-{% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_ATTACHMENTS_START", resource_name: "attachments_extraction_test.json", expected_output_event_type: "EXTRACTION_ATTACHMENTS_DONE" %}
+  - {% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_ATTACHMENTS_START", resource_name: "attachments_extraction_test.json", expected_output_event_type: "EXTRACTION_ATTACHMENTS_DONE" %}
 
 - If "event_type" equals "EXTRACTION_DATA_START", The Extraction Function should support incremental data synchronization as described in the resource [incremental_mode.md](docs/incremental_mode.md).
   - Incremental mode should only work for the "cards" and their corresponding "attachments" data. If `event["payload"]["event_context"]["mode"]=SyncMode.INCREMENTAL`, set:
@@ -302,4 +302,6 @@
 
   ***Acceptance Tests:***
 
-{% include "templates/incremental_mode_acceptance_tests.plain" %}
+  - {% include "templates/trello_incremental_mode_acceptance_tests_first.plain" %}
+
+  - {% include "templates/trello_incremental_mode_acceptance_tests_second.plain" %}
