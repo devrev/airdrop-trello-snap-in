@@ -1,0 +1,75 @@
+[
+  {
+      "payload": {
+          "connection_data": {
+              "key": "key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>",
+              "key_type": "",
+              "org_id": "<TRELLO_ORGANIZATION_ID>",
+              "org_name": "Trello Workspace"
+          },
+          "event_context": {
+              "callback_url": "http://localhost:8002/callback",
+              "dev_oid": "DEV-36shCCBEAA",
+              "dev_org": "DEV-36shCCBEAA",
+              "dev_org_id": "DEV-36shCCBEAA",
+              "dev_uid": "DEVU-6",
+              "dev_user": "DEVU-6",
+              "dev_user_id": "DEVU-6",
+              "event_type_adaas": "",
+              "external_sync_unit": "688725dad59c015ce052eecf",
+              "external_sync_unit_id": "688725dad59c015ce052eecf",
+              "external_sync_unit_name": "cards-pagination-test-2025-07-28-092514",
+              "external_system": "6752eb95c833e6b206fcf388",
+              "external_system_id": "6752eb95c833e6b206fcf388",
+              "external_system_name": "Trello",
+              "external_system_type": "ADaaS",
+              "import_slug": "trello-snapin-devrev",
+              "initial_sync_scope": "full-history",
+              "mode": "INITIAL",
+              "request_id": "ff894fd5-2290-42bb-9f89-0785e49b4049",
+              "request_id_adaas": "ff894fd5-2290-42bb-9f89-0785e49b4049",
+              "run_id": "cbbe2419-1f86-4737-aa78-6bb7118ce52c",
+              "sequence_version": "17",
+              "snap_in_slug": "trello-snapin-devrev",
+              "snap_in_version_id": "don:integration:dvrv-eu-1:devo/36shCCBEAA:snap_in_package/787b97af-95a8-4b57-809e-8d55f4e72f40:snap_in_version/50d4660e-dad9-41D6-9169-8a7e96b2d7fa",
+              "sync_run": "cbbe2419-1f86-4737-aa78-6bb7118ce52c",
+              "sync_run_id": "cbbe2419-1f86-4737-aa78-6bb7118ce52c",
+              "sync_tier": "sync_tier_2",
+              "sync_unit": "don:integration:dvrv-eu-1:devo/36shCCBEAA:external_system_type/ADAAS:external_system/6752eb95c833e6b206fcf388:sync_unit/984c894e-71e5-4e94-b484-40b839c9a916",
+              "sync_unit_id": "984c894e-71e5-4e94-b484-40b839c9a916",
+              "uuid": "ff894fd5-2290-42bb-9f89-0785e49b4049",
+              "worker_data_url": "http://localhost:8003/external-worker"
+          },
+          "event_type": "EXTRACTION_ATTACHMENTS_CONTINUE"
+      },
+      "context": {
+          "dev_oid": "don:identity:dvrv-eu-1:devo/36shCCBEAA",
+          "automation_id": "",
+          "source_id": "",
+          "snap_in_id": "don:integration:dvrv-eu-1:devo/36shCCBEAA:snap_in/04bf12fa-57bd-4057-b0b0-ed3f42d9813e",
+          "snap_in_version_id": "don:integration:dvrv-eu-1:devo/36shCCBEAA:snap_in_package/787b97af-95a8-4b57-809e-8d55f4e72f40:snap_in_version/50d4660e-dad9-41D6-9169-8a7e96b2d7fa",
+          "service_account_id": "don:identity:dvrv-eu-1:devo/36shCCBEAA:svcacc/101",
+          "secrets": {
+              "service_account_token": "test-service-account-token"
+          },
+          "user_id": "don:identity:dvrv-eu-1:devo/36shCCBEAA:devu/6",
+          "event_id": "",
+          "execution_id": "4481432207487786275"
+      },
+      "execution_metadata": {
+          "request_id": "ff894fd5-2290-42bb-9f89-0785e49b4049",
+          "function_name": "extraction",
+          "event_type": "EXTRACTION_ATTACHMENTS_START",
+          "devrev_endpoint": "http://localhost:8003"
+      },
+      "input_data": {
+          "global_values": {},
+          "event_sources": {},
+          "keyrings": null,
+          "resources": {
+              "keyrings": {},
+              "tags": {}
+          }
+      }
+  }
+]

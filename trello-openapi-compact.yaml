@@ -6,7 +6,7 @@ info:
     This document contains information about how to authenticate with the Trello
     API.
 servers:
-  - url: 'https://api.trello.com/1'
+  - url: 'https://api.trello.com/1/'
 components:
   securitySchemes:
     APIKey:
@@ -47,7 +47,7 @@ paths:
                   value:
                     - id: "card_id_123"
                       badges:
-                        attachments: 0
+                        attachments: 1
                         fogbugz: ""
                         checkItems: 0
                         checkItemsChecked: 0
@@ -107,6 +107,32 @@ paths:
                       isTemplate: false
                       cardRole: null
                       mirrorSourceId: null
+                      attachments: [
+                        {
+                          id: "689c8fbf0d9f05de7564d93d",
+                          bytes: null,
+                          date: "2025-08-13T13:14:39.839Z", 
+                          edgeColor: null,
+                          idMember: "6752eb529b14a3446b75e69c",
+                          isMalicious: false,
+                          isUpload: false,
+                          mimeType: "",
+                          name: "devrev cover",
+                          previews: [],
+                          url: "https://www.atom.com/name/Test",
+                          pos: 140737488355328,
+                          fileName: "Test"
+                        }
+                      ]
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
   '/members/{id}':
     get:
       description: Get a member
@@ -140,6 +166,15 @@ paths:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/Member'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
   '/members/{id}/boards':
     get:
       description: Lists the boards that the user is a member of.
@@ -207,6 +242,15 @@ paths:
                           memberType: "admin"
                           unconfirmed: false
                           deactivated: false
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP date object indicating when to retry the request.
+              schema:
+                type: string
+                format: date-time
   '/organizations/{id}/members':
     get:
       description: List the members in a Workspace
@@ -230,6 +274,15 @@ paths:
                       fullName: "My full name"
                       username: "examplesaas1"
                       lastActive: "2025-04-06T08:37:21.065Z"
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
   '/cards/{id}/attachments':
     get:
       description: List the attachments on a card
@@ -278,3 +331,80 @@ paths:
                       previews: []
                       url: "https://admin.typeform.com/form/RzExEM/share#/link"
                       pos: 1638
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
+  '/cards/{idCard}/attachments/{idAttachment}/download/{fileName}':
+    get:
+      description: >-
+        Download an attachment file from a card. This endpoint is the ONLY endpoint in this API
+        that requires OAuth 1.0a authorization with oauth_consumer_key and oauth_token encoded
+        in the Authorization header (unlike all other endpoints which use simple API key/token
+        query parameters). The URL format includes the card ID, attachment ID, and the original
+        filename. This replaces the previous public S3 URLs that required no authentication.
+
+        How to execute this with CURL: 
+        ```
+        curl -X GET "https://api.trello.com/1//cards/{idCard}/attachments/{idAttachment}/download/{fileName}" -H "Authorization: OAuth oauth_consumer_key=\"{oauth_consumer_key}\", oauth_token=\"{oauth_token}\""
+        ```
+      parameters:
+        - name: idCard
+          in: path
+          description: The ID of the Card
+          required: true
+          schema:
+            type: string
+        - name: idAttachment
+          in: path
+          description: The ID of the Attachment
+          required: true
+          schema:
+            type: string
+        - name: fileName
+          in: path
+          description: The original filename of the attachment (can be obtained from the fileName property or parsed from the url property)
+          required: true
+          schema:
+            type: string
+      security:
+        - APIKey: []
+          APIToken: []
+      responses:
+        '200':
+          description: The attachment file content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            image/*:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            text/*:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized - Invalid or missing API key/token
+        '404':
+          description: Card, attachment, or file not found
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
