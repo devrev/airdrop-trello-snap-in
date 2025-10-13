@@ -1,110 +1,126 @@
 import { FunctionInput } from '../../core/types';
 import { TrelloClient } from '../../core/trello-client';
 
-export interface DownloadAttachmentResult {
-  attachment_data?: Buffer;
+export interface DownloadAttachmentResponse {
+  status: 'success' | 'failure';
   status_code: number;
   api_delay: number;
   message: string;
+  timestamp: string;
+  file_data?: string; // Base64 encoded file content
+  file_name?: string;
+  content_type?: string;
 }
 
 /**
- * Function that downloads an attachment from Trello API.
- * 
- * @param events Array of function input events
- * @returns Object containing attachment data and API response info
+ * Download attachment function that downloads an attachment file from a Trello card.
+ * Makes a request to /cards/{idCard}/attachments/{idAttachment}/download/{fileName} endpoint.
  */
-export async function run(events: FunctionInput[]): Promise<DownloadAttachmentResult> {
+const run = async (events: FunctionInput[]): Promise<DownloadAttachmentResponse> => {
   try {
-    // Process only the first event
-    if (!events || events.length === 0) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Download attachment failed: No events provided',
-      };
+    // Validate input
+    if (!events || !Array.isArray(events)) {
+      throw new Error('Invalid input: events must be an array');
     }
 
+    if (events.length === 0) {
+      throw new Error('Invalid input: events array cannot be empty');
+    }
+
+    // Process only the first event as per requirements
     const event = events[0];
-    
-    // Extract connection data
-    const connectionData = event.payload.connection_data;
-    if (!connectionData || !connectionData.key) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Download attachment failed: Missing connection data',
-      };
+
+    // Validate event structure
+    if (!event) {
+      throw new Error('Invalid event: event cannot be null or undefined');
     }
 
-    // Extract required parameters
-    const globalValues = event.input_data.global_values;
-    const idCard = globalValues?.idCard;
-    const idAttachment = globalValues?.idAttachment;
-    const fileName = globalValues?.fileName;
-
-    if (!idCard) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Download attachment failed: Missing required idCard parameter',
-      };
+    if (!event.payload) {
+      throw new Error('Invalid event: missing payload');
     }
 
-    if (!idAttachment) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Download attachment failed: Missing required idAttachment parameter',
-      };
+    if (!event.payload.connection_data) {
+      throw new Error('Invalid event: missing connection_data in payload');
     }
 
-    if (!fileName) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Download attachment failed: Missing required fileName parameter',
-      };
+    if (!event.payload.connection_data.key) {
+      throw new Error('Invalid event: missing key in connection_data');
     }
 
-    // Parse API credentials
-    let credentials;
-    try {
-      credentials = TrelloClient.parseCredentials(connectionData.key);
-    } catch (error) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: `Download attachment failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
+    if (!event.input_data) {
+      throw new Error('Invalid event: missing input_data');
     }
 
-    // Initialize Trello client and download attachment
-    const trelloClient = new TrelloClient({
-      apiKey: credentials.apiKey,
-      token: credentials.token,
-    });
+    if (!event.input_data.global_values) {
+      throw new Error('Invalid event: missing global_values in input_data');
+    }
 
+    if (!event.input_data.global_values.idCard) {
+      throw new Error('Invalid event: missing idCard in global_values');
+    }
+
+    if (!event.input_data.global_values.idAttachment) {
+      throw new Error('Invalid event: missing idAttachment in global_values');
+    }
+
+    if (!event.input_data.global_values.fileName) {
+      throw new Error('Invalid event: missing fileName in global_values');
+    }
+
+    // Extract parameters
+    const idCard = event.input_data.global_values.idCard;
+    const idAttachment = event.input_data.global_values.idAttachment;
+    const fileName = event.input_data.global_values.fileName;
+
+    // Create Trello client from connection data
+    const trelloClient = TrelloClient.fromConnectionData(event.payload.connection_data.key);
+
+    // Download attachment from Trello API
     const response = await trelloClient.downloadAttachment(idCard, idAttachment, fileName);
 
-    const result: DownloadAttachmentResult = {
-      status_code: response.status_code,
-      api_delay: response.api_delay,
-      message: response.message,
-    };
+    const timestamp = new Date().toISOString();
 
-    // Include attachment data if successful
     if (response.status_code === 200 && response.data) {
-      result.attachment_data = response.data;
+      // Successfully downloaded attachment
+      return {
+        status: 'success',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+        timestamp,
+        file_data: response.data.file_data,
+        file_name: response.data.file_name,
+        content_type: response.data.content_type,
+      };
+    } else {
+      // Failed to download attachment
+      return {
+        status: 'failure',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+        timestamp,
+      };
     }
-
-    return result;
   } catch (error) {
-    console.error('Error in download_attachment function:', error);
+    const timestamp = new Date().toISOString();
+    
+    // Log error for debugging purposes
+    console.error('Download attachment function error:', {
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      error_stack: error instanceof Error ? error.stack : undefined,
+      timestamp,
+    });
+
+    // Return failure response for any errors
     return {
-      status_code: 0,
+      status: 'failure',
+      status_code: 500,
       api_delay: 0,
-      message: `Download attachment failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: error instanceof Error ? error.message : 'Unknown error occurred during attachment download',
+      timestamp,
     };
   }
-}
+};
+
+export default run;

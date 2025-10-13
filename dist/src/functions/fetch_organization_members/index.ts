@@ -1,89 +1,114 @@
 import { FunctionInput } from '../../core/types';
 import { TrelloClient } from '../../core/trello-client';
 
-export interface FetchOrganizationMembersResult {
-  members?: any[];
+export interface FetchOrganizationMembersResponse {
+  status: 'success' | 'failure';
   status_code: number;
   api_delay: number;
   message: string;
+  timestamp: string;
+  members?: Array<{
+    id: string;
+    full_name?: string;
+    username?: string;
+    last_active?: string;
+    [key: string]: any;
+  }>;
 }
 
 /**
- * Function that fetches organization members from Trello API.
- * 
- * @param events Array of function input events
- * @returns Object containing organization members data and API response info
+ * Fetch organization members function that retrieves the list of members for a specific organization.
+ * Makes a request to /organizations/{id}/members endpoint.
  */
-export async function run(events: FunctionInput[]): Promise<FetchOrganizationMembersResult> {
+const run = async (events: FunctionInput[]): Promise<FetchOrganizationMembersResponse> => {
   try {
-    // Process only the first event
-    if (!events || events.length === 0) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch organization members failed: No events provided',
-      };
+    // Validate input
+    if (!events || !Array.isArray(events)) {
+      throw new Error('Invalid input: events must be an array');
     }
 
+    if (events.length === 0) {
+      throw new Error('Invalid input: events array cannot be empty');
+    }
+
+    // Process only the first event as per requirements
     const event = events[0];
+
+    // Validate event structure
+    if (!event) {
+      throw new Error('Invalid event: event cannot be null or undefined');
+    }
+
+    if (!event.payload) {
+      throw new Error('Invalid event: missing payload');
+    }
+
+    if (!event.payload.connection_data) {
+      throw new Error('Invalid event: missing connection_data in payload');
+    }
+
+    if (!event.payload.connection_data.key) {
+      throw new Error('Invalid event: missing key in connection_data');
+    }
+
+    if (!event.payload.connection_data.org_id) {
+      throw new Error('Invalid event: missing org_id in connection_data');
+    }
+
+    // Create Trello client from connection data
+    const trelloClient = TrelloClient.fromConnectionData(event.payload.connection_data.key);
+
+    // Fetch organization members from Trello API
+    const response = await trelloClient.getOrganizationMembers(event.payload.connection_data.org_id);
+
+    const timestamp = new Date().toISOString();
+
+    if (response.status_code === 200 && response.data) {
+      // Successfully fetched organization members
+      return {
+        status: 'success',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+        timestamp,
+        members: response.data.map(member => {
+          const { fullName, lastActive, ...memberWithoutCamelCase } = member;
+          return {
+            ...memberWithoutCamelCase,
+            full_name: fullName,
+            last_active: lastActive,
+          };
+        }),
+      };
+    } else {
+      // Failed to fetch organization members
+      return {
+        status: 'failure',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+        timestamp,
+      };
+    }
+  } catch (error) {
+    const timestamp = new Date().toISOString();
     
-    // Extract connection data
-    const connectionData = event.payload.connection_data;
-    if (!connectionData || !connectionData.key) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch organization members failed: Missing connection data',
-      };
-    }
-
-    // Extract organization ID
-    if (!connectionData.org_id) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch organization members failed: Missing organization ID',
-      };
-    }
-
-    // Parse API credentials
-    let credentials;
-    try {
-      credentials = TrelloClient.parseCredentials(connectionData.key);
-    } catch (error) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: `Fetch organization members failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-
-    // Initialize Trello client and fetch organization members
-    const trelloClient = new TrelloClient({
-      apiKey: credentials.apiKey,
-      token: credentials.token,
+    // Log error for debugging purposes
+    console.error('Fetch organization members function error:', {
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      error_stack: error instanceof Error ? error.stack : undefined,
+      timestamp,
     });
 
-    const response = await trelloClient.getOrganizationMembers(connectionData.org_id);
-
-    const result: FetchOrganizationMembersResult = {
-      status_code: response.status_code,
-      api_delay: response.api_delay,
-      message: response.message,
-    };
-
-    // Include members data if successful
-    if (response.status_code === 200 && response.data) {
-      result.members = response.data;
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Error in fetch_organization_members function:', error);
+    // Return failure response for any errors
     return {
-      status_code: 0,
+      status: 'failure',
+      status_code: 500,
       api_delay: 0,
-      message: `Fetch organization members failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: error instanceof Error ? error.message : 'Unknown error occurred during organization members fetching',
+      timestamp,
     };
   }
-}
+};
+
+export default run;

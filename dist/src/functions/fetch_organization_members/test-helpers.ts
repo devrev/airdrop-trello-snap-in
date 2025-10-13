@@ -1,75 +1,170 @@
 import { FunctionInput } from '../../core/types';
-import { TrelloClient } from '../../core/trello-client';
+import { FetchOrganizationMembersResponse } from './index';
+import { TrelloOrganizationMember, TrelloApiResponse } from '../../core/trello-client';
+import { createMockEvent } from './test-setup';
 
-export const mockMembers = [
-  {
-    id: 'member1',
-    fullName: 'John Doe',
-    username: 'johndoe',
-    lastActive: '2025-04-06T08:37:21.065Z'
-  },
-  {
-    id: 'member2',
-    fullName: 'Jane Smith',
-    username: 'janesmith',
-    lastActive: '2025-04-05T10:15:30.123Z'
-  }
-];
-
-export const createMockEvent = (overrides: any = {}): FunctionInput => ({
-  payload: {
-    connection_data: {
-      org_id: 'test-org-id',
-      org_name: 'test-org-name',
-      key: 'key=test-api-key&token=test-token',
-      key_type: 'test-key-type'
+/**
+ * Creates test scenarios for various organization members configurations
+ */
+export const createOrganizationMembersTestScenarios = () => {
+  return {
+    emptyMembers: {
+      description: 'should handle empty organization members response',
+      mockResponse: {
+        data: [],
+        status_code: 200,
+        api_delay: 0,
+        message: 'Successfully retrieved organization members',
+      } as TrelloApiResponse<TrelloOrganizationMember[]>,
+      expectedMembers: [],
     },
-    ...overrides.payload
-  },
-  context: {
-    dev_oid: 'test-dev-oid',
-    source_id: 'test-source-id',
-    snap_in_id: 'test-snap-in-id',
-    snap_in_version_id: 'test-snap-in-version-id',
-    service_account_id: 'test-service-account-id',
-    secrets: {
-      service_account_token: 'test-token'
+    customMember: {
+      description: 'should map member properties correctly',
+      mockResponse: {
+        data: [{
+          id: 'custom-member',
+          fullName: 'Custom Member',
+          username: 'custommember',
+          lastActive: '2025-01-15T14:30:00.000Z',
+          customProperty: 'custom-value',
+        }],
+        status_code: 200,
+        api_delay: 0,
+        message: 'Successfully retrieved organization members',
+      } as TrelloApiResponse<TrelloOrganizationMember[]>,
+      expectedMember: {
+        id: 'custom-member',
+        full_name: 'Custom Member',
+        username: 'custommember',
+        last_active: '2025-01-15T14:30:00.000Z',
+        customProperty: 'custom-value',
+      },
     },
-    ...overrides.context
-  },
-  execution_metadata: {
-    request_id: 'test-request-id',
-    function_name: 'fetch_organization_members',
-    event_type: 'test-event-type',
-    devrev_endpoint: 'https://api.devrev.ai',
-    ...overrides.execution_metadata
-  },
-  input_data: {
-    global_values: {},
-    event_sources: {},
-    ...overrides.input_data
-  }
-});
-
-export const setupTrelloClientMock = (mockResponse: any) => {
-  // Mock the static parseCredentials method
-  jest.spyOn(TrelloClient, 'parseCredentials').mockReturnValue({
-    apiKey: 'test-api-key',
-    token: 'test-token',
-  });
-
-  const mockGetOrganizationMembers = jest.fn().mockResolvedValue(mockResponse);
-
-  // Mock the constructor
-  (TrelloClient as jest.MockedClass<typeof TrelloClient>).mockImplementation(() => ({
-    getOrganizationMembers: mockGetOrganizationMembers,
-  } as any));
-
-  return mockGetOrganizationMembers;
+    serverError: {
+      description: 'should handle server errors correctly',
+      mockResponse: {
+        status_code: 500,
+        api_delay: 0,
+        message: 'Trello API server error',
+      } as TrelloApiResponse,
+    },
+    notFoundError: {
+      description: 'should handle organization not found errors',
+      mockResponse: {
+        status_code: 404,
+        api_delay: 0,
+        message: 'Organization not found',
+      } as TrelloApiResponse,
+    },
+    successWithoutData: {
+      description: 'should handle successful response without members data',
+      mockResponse: {
+        status_code: 200,
+        api_delay: 0,
+        message: 'Success but no data',
+      } as TrelloApiResponse,
+    },
+  };
 };
 
-export const setupTrelloClientParseError = (errorMessage: string) => {
-  jest.spyOn(TrelloClient, 'parseCredentials').mockImplementation(() => {
-    throw new Error(errorMessage);
+/**
+ * Creates test cases for multiple events scenarios
+ */
+export const createMultipleEventsTestCase = () => {
+  const mockEvent1 = createMockEvent('key=api-key-1&token=token-1', 'org-1');
+  const mockEvent2 = createMockEvent('key=api-key-2&token=token-2', 'org-2');
+  
+  return {
+    events: [mockEvent1, mockEvent2],
+    expectedConnectionData: 'key=api-key-1&token=token-1',
+    expectedOrgId: 'org-1',
+    description: 'should process only the first event when multiple events are provided',
+  };
+};
+
+/**
+ * Creates test cases for error scenarios
+ */
+export const createErrorTestScenarios = () => {
+  return {
+    clientCreationError: {
+      description: 'should handle TrelloClient creation errors',
+      errorMessage: 'Invalid connection data format',
+      setupMock: (TrelloClientMock: any) => {
+        jest.spyOn(TrelloClientMock, 'fromConnectionData').mockImplementation(() => {
+          throw new Error('Invalid connection data format');
+        });
+      },
+    },
+    apiCallError: {
+      description: 'should handle API call errors',
+      errorMessage: 'Network error',
+      setupMock: (mockInstance: any) => {
+        mockInstance.getOrganizationMembers.mockRejectedValue(new Error('Network error'));
+      },
+    },
+    unknownError: {
+      description: 'should handle unknown errors gracefully',
+      errorMessage: 'Unknown error occurred during organization members fetching',
+      createEvent: () => {
+        const mockEvent = createMockEvent();
+        Object.defineProperty(mockEvent, 'payload', {
+          get: () => {
+            throw 'string error'; // Non-Error object
+          }
+        });
+        return mockEvent;
+      },
+      expectedConsoleLog: {
+        error_message: 'Unknown error',
+        error_stack: undefined,
+        timestamp: expect.any(String),
+      },
+    },
+  };
+};
+
+/**
+ * Validates that a response matches the expected success pattern
+ */
+export const validateSuccessResponseStructure = (result: FetchOrganizationMembersResponse) => {
+  expect(result.status).toBe('success');
+  expect(result.status_code).toBe(200);
+  expect(result.api_delay).toBe(0);
+  expect(result.message).toBe('Successfully retrieved organization members');
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.members).toBeDefined();
+  expect(Array.isArray(result.members)).toBe(true);
+};
+
+/**
+ * Validates that a response matches the expected failure pattern
+ */
+export const validateFailureResponseStructure = (
+  result: FetchOrganizationMembersResponse,
+  expectedStatusCode: number,
+  expectedMessage: string,
+  expectedApiDelay: number = 0
+) => {
+  expect(result.status).toBe('failure');
+  expect(result.status_code).toBe(expectedStatusCode);
+  expect(result.api_delay).toBe(expectedApiDelay);
+  expect(result.message).toBe(expectedMessage);
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.members).toBeUndefined();
+};
+
+/**
+ * Creates a test event that will cause an unknown error for testing error handling
+ */
+export const createUnknownErrorEvent = () => {
+  const mockEvent = createMockEvent();
+  Object.defineProperty(mockEvent, 'payload', {
+    get: () => {
+      throw 'string error'; // Non-Error object
+    }
   });
+  return mockEvent;
 };
