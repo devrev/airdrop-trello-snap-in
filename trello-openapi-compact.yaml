@@ -283,6 +283,74 @@ paths:
                 Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
               schema:
                 type: string
+  '/cards/{id}/actions':
+    get:
+      description: >-
+        Get the actions (activity/history) for a card. Actions represent events like
+        card creation, updates, comments, etc. Use the filter parameter to specify
+        which types of actions to retrieve.
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the Card
+          required: true
+          schema:
+            type: string
+        - name: filter
+          in: query
+          description: >-
+            A comma-separated list of action types to filter by. Common values include:
+            createCard, updateCard, commentCard, addAttachmentToCard, deleteAttachmentFromCard,
+            addMemberToCard, removeMemberFromCard, etc.
+          required: false
+          schema:
+            type: string
+            example: "createCard"
+        - name: fields
+          in: query
+          description: >-
+            All or a comma-separated list of action fields to include in the response.
+            Valid values: id, idMemberCreator, data, type, date, etc.
+          required: false
+          schema:
+            type: string
+            default: all
+            example: "idMemberCreator"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Action'
+              examples:
+                sample:
+                  summary: Example response with createCard action
+                  value:
+                    - id: "688725dd74f73c42539da8a7"
+                      idMemberCreator: "6752eb529b14a3446b75e69c"
+                      memberCreator:
+                        id: "6752eb529b14a3446b75e69c"
+                        activityBlocked: false
+                        avatarHash: "66f803055e4e7070d6a1cc83cc06e6cd"
+                        avatarUrl: "https://trello-members.s3.amazonaws.com/6752eb529b14a3446b75e69c/66f803055e4e7070d6a1cc83cc06e6cd"
+                        fullName: "SaaS Connectors"
+                        idMemberReferrer: null
+                        initials: "SC"
+                        nonPublic: {}
+                        nonPublicAvailable: true
+                        username: "examplesaas1"
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
   '/cards/{id}/attachments':
     get:
       description: List the attachments on a card
