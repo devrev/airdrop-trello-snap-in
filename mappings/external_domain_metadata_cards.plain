@@ -5,3 +5,6 @@ The record type 'cards' (Name: Cards) should have the following fields:
   - id_members (display name: "ID Members", is required, type: reference)
     - Field id_members refers to the record type "#record:users".
     - Type of field id_members is an array with max_length 50.
+  - created_by (display name: "Created By", is required, type: reference)
+    - Field created_by refers to the record type "#record:users".
+    - Type of field created_by is a single reference.

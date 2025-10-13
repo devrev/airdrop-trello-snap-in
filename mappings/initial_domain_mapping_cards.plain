@@ -8,6 +8,7 @@ The record_type_mappings "cards" should have the following properties:
     - field "url" should be mapped to "item_url_field"
     - field "description" should be mapped to "body" (rich text)
     - field "id_members" should be mapped to "owned_by_ids" (use directly)
+    - field "created_by" should be mapped to "created_by_id" (use directly)
   - The following The Stock Field Mapping Fields should be mapped using The Fixed Transformation Method:
     - field "priority" should contain fixed value "P2"
     - field "stage" should contain fixed value "triage"
