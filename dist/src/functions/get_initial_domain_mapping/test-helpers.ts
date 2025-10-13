@@ -1,163 +1,118 @@
-import { FunctionInput } from '../../core/types';
-import initialDomainMapping from '../../initial-domain-mapping.json';
+import { GetInitialDomainMappingResponse } from './index';
+import initialDomainMapping from '../../core/initial-domain-mapping.json';
+import {
+  validateMappingStructure,
+  validateUsersMapping,
+  validateCardsMapping,
+  validatePossibleRecordTypeMapping,
+  validateCardsPossibleRecordTypeMapping,
+  validateStockFieldMappings,
+  validateCardsStockFieldMappings,
+  validateMappingDirections,
+  validateCardsMappingDirections,
+  validateBothRecordTypeMappings,
+  validateTransformationMethods,
+} from './test-validators';
 
-export const createMockEvent = (overrides: any = {}): FunctionInput => ({
-  payload: {},
-  context: {
-    dev_oid: 'test-dev-oid',
-    source_id: 'test-source-id',
-    snap_in_id: 'test-snap-in-id',
-    snap_in_version_id: 'test-snap-in-version-id',
-    service_account_id: 'test-service-account-id',
-    secrets: {
-      service_account_token: 'test-token'
+/**
+ * Validates that a response matches the expected success pattern with mapping
+ */
+export const validateSuccessResponseStructure = (result: GetInitialDomainMappingResponse) => {
+  expect(result.status).toBe('success');
+  expect(result.message).toBe('Successfully retrieved initial domain mapping');
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.mapping).toEqual(initialDomainMapping);
+};
+
+/**
+ * Validates that a response matches the expected failure pattern
+ */
+export const validateFailureResponseStructure = (
+  result: GetInitialDomainMappingResponse,
+  expectedMessage: string
+) => {
+  expect(result.status).toBe('failure');
+  expect(result.message).toBe(expectedMessage);
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.mapping).toBeUndefined();
+};
+
+/**
+ * Creates comprehensive test scenarios for mapping validation
+ */
+export const createMappingValidationScenarios = () => {
+  return {
+    structure: {
+      description: 'should return mapping with correct structure',
+      validator: validateMappingStructure,
     },
-    ...overrides.context
-  },
-  execution_metadata: {
-    request_id: 'test-request-id',
-    function_name: 'get_initial_domain_mapping',
-    event_type: 'test-event-type',
-    devrev_endpoint: 'https://api.devrev.ai',
-    ...overrides.execution_metadata
-  },
-  input_data: {
-    global_values: {},
-    event_sources: {},
-    ...overrides.input_data
-  }
-});
-
-export const getUsersMapping = (domainMapping: any) => {
-  return domainMapping.additional_mappings.record_type_mappings.users;
+    usersMapping: {
+      description: 'should return mapping with correct users configuration',
+      validator: validateUsersMapping,
+    },
+    possibleRecordTypeMapping: {
+      description: 'should return mapping with correct possible record type mapping',
+      validator: validatePossibleRecordTypeMapping,
+    },
+    cardsMapping: {
+      description: 'should return mapping with correct cards configuration',
+      validator: validateCardsMapping,
+    },
+    cardsPossibleRecordTypeMapping: {
+      description: 'should return mapping with correct cards possible record type mapping',
+      validator: validateCardsPossibleRecordTypeMapping,
+    },
+    cardsStockFieldMappings: {
+      description: 'should return mapping with correct cards stock field mappings',
+      validator: validateCardsStockFieldMappings,
+    },
+    stockFieldMappings: {
+      description: 'should return mapping with correct stock field mappings',
+      validator: validateStockFieldMappings,
+    },
+    mappingDirections: {
+      description: 'should validate that all mappings are forward-only',
+      validator: validateMappingDirections,
+    },
+    cardsMappingDirections: {
+      description: 'should validate that all cards mappings are forward-only',
+      validator: validateCardsMappingDirections,
+    },
+    transformationMethods: {
+      description: 'should validate that all mappings use use_directly transformation method',
+      validator: validateTransformationMethods,
+    },
+    bothRecordTypeMappings: {
+      description: 'should validate that both users and cards record type mappings exist',
+      validator: validateBothRecordTypeMappings,
+    },
+  };
 };
 
-export const getCardsMapping = (domainMapping: any) => {
-  return domainMapping.additional_mappings.record_type_mappings.cards;
-};
-
-export const getUsersStockFieldMappings = (domainMapping: any) => {
-  const usersMapping = getUsersMapping(domainMapping);
-  return usersMapping.possible_record_type_mappings[0].shard.stock_field_mappings;
-};
-
-export const getCardsStockFieldMappings = (domainMapping: any) => {
-  const cardsMapping = getCardsMapping(domainMapping);
-  return cardsMapping.possible_record_type_mappings[0].shard.stock_field_mappings;
-};
-
-export const getUsersShard = (domainMapping: any) => {
-  const usersMapping = getUsersMapping(domainMapping);
-  return usersMapping.possible_record_type_mappings[0].shard;
-};
-
-export const getCardsShard = (domainMapping: any) => {
-  const cardsMapping = getCardsMapping(domainMapping);
-  return cardsMapping.possible_record_type_mappings[0].shard;
-};
-
-export const expectedUsersDefaultMapping = {
-  object_category: 'stock',
-  object_type: 'devu'
-};
-
-export const expectedCardsDefaultMapping = {
-  object_category: 'stock',
-  object_type: 'issue'
-};
-
-export const expectedFullNameMapping = {
-  forward: true,
-  reverse: false,
-  primary_external_field: 'full_name',
-  transformation_method_for_set: {
-    transformation_method: 'use_directly'
-  }
-};
-
-export const expectedDisplayNameMapping = {
-  forward: true,
-  reverse: false,
-  primary_external_field: 'username',
-  transformation_method_for_set: {
-    transformation_method: 'use_directly'
-  }
-};
-
-export const expectedTitleMapping = {
-  forward: true,
-  reverse: false,
-  primary_external_field: 'name',
-  transformation_method_for_set: {
-    transformation_method: 'use_directly'
-  }
-};
-
-export const expectedItemUrlFieldMapping = {
-  forward: true,
-  reverse: false,
-  primary_external_field: 'url',
-  transformation_method_for_set: {
-    transformation_method: 'use_directly'
-  }
-};
-
-export const expectedBodyMapping = {
-  forward: true,
-  reverse: false,
-  primary_external_field: 'description',
-  transformation_method_for_set: {
-    transformation_method: 'use_rich_text'
-  }
-};
-
-export const expectedOwnedByIdsMapping = {
-  forward: true,
-  reverse: false,
-  primary_external_field: 'id_members',
-  transformation_method_for_set: {
-    transformation_method: 'use_directly'
-  }
-};
-
-export const expectedPriorityMapping = {
-  forward: true,
-  reverse: false,
-  transformation_method_for_set: {
-    enum: 'P2',
-    transformation_method: 'use_fixed_value',
-    value: 'enum_value'
-  }
-};
-
-export const expectedStageMapping = {
-  forward: true,
-  reverse: false,
-  transformation_method_for_set: {
-    enum: 'triage',
-    transformation_method: 'use_fixed_value',
-    value: 'enum_value'
-  }
-};
-
-export const expectedAppliesToPartIdMapping = {
-  forward: true,
-  reverse: false,
-  transformation_method_for_set: {
-    transformation_method: 'use_devrev_record',
-    leaf_type: {
-      object_category: 'stock',
-      object_type: 'product'
-    }
-  }
-};
-
-export const expectedDevrevLeafType = {
-  object_category: 'stock',
-  object_type: 'devu'
-};
-
-export const expectedCardsDevrevLeafType = {
-  object_category: 'stock',
-  object_type: 'issue'
+/**
+ * Creates error handling test scenarios
+ */
+export const createErrorHandlingScenarios = () => {
+  return {
+    unknownError: {
+      description: 'should handle unknown errors gracefully',
+      expectedMessage: 'Unknown error occurred during mapping retrieval',
+      expectedConsoleLog: {
+        error_message: 'Unknown error',
+        error_stack: undefined,
+        timestamp: expect.any(String),
+      },
+    },
+    validationError: {
+      description: 'should log error details when validation fails',
+      expectedMessage: 'Invalid input: events array cannot be empty',
+      expectedConsoleLog: {
+        error_message: 'Invalid input: events array cannot be empty',
+        error_stack: expect.any(String),
+        timestamp: expect.any(String),
+      },
+    },
+  };
 };

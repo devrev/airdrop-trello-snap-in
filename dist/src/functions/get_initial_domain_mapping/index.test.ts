@@ -1,149 +1,198 @@
-import { run } from './index';
-import initialDomainMapping from '../../initial-domain-mapping.json';
+import run from './index';
+import initialDomainMapping from '../../core/initial-domain-mapping.json';
 import {
   createMockEvent,
-  getUsersMapping,
-  getCardsMapping,
-  getUsersStockFieldMappings,
-  getCardsStockFieldMappings,
-  getUsersShard,
-  getCardsShard,
-  expectedUsersDefaultMapping,
-  expectedCardsDefaultMapping,
-  expectedFullNameMapping,
-  expectedDisplayNameMapping,
-  expectedTitleMapping,
-  expectedItemUrlFieldMapping,
-  expectedBodyMapping,
-  expectedOwnedByIdsMapping,
-  expectedPriorityMapping,
-  expectedStageMapping,
-  expectedAppliesToPartIdMapping,
-  expectedDevrevLeafType,
-  expectedCardsDevrevLeafType
+  setupConsoleSpies,
+  clearAllMocks,
+  createInvalidInputTestCases,
+  createInvalidEventTestCases,
+} from './test-setup';
+import {
+  validateSuccessResponseStructure,
+  validateFailureResponseStructure,
+  createMappingValidationScenarios,
+  createErrorHandlingScenarios,
 } from './test-helpers';
 
 describe('get_initial_domain_mapping function', () => {
-  it('should return initial domain mapping when given valid events', async () => {
-    const result = await run([createMockEvent()]);
-    
-    expect(result).toEqual({
-      initial_domain_mapping: initialDomainMapping,
-      success: true,
-      message: 'Initial domain mapping retrieved successfully'
+  beforeEach(() => {
+    clearAllMocks();
+    setupConsoleSpies();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should return success response with initial domain mapping', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
+
+    const result = await run(events);
+
+    validateSuccessResponseStructure(result);
+  });
+
+  describe('mapping validation scenarios', () => {
+    const scenarios = createMappingValidationScenarios();
+
+    Object.entries(scenarios).forEach(([key, scenario]) => {
+      it(scenario.description, async () => {
+        const mockEvent = createMockEvent();
+        const events = [mockEvent];
+
+        const result = await run(events);
+
+        expect(result.status).toBe('success');
+        scenario.validator(result.mapping);
+      });
     });
   });
 
-  it('should return the correct structure for users record type mapping', async () => {
-    const result = await run([createMockEvent()]);
-    const usersMapping = getUsersMapping(result.initial_domain_mapping);
+  describe('input validation', () => {
+    const testCases = createInvalidInputTestCases();
     
-    expect(usersMapping).toBeDefined();
-    expect(usersMapping.default_mapping).toEqual(expectedUsersDefaultMapping);
+    testCases.forEach(({ input, expectedMessage }) => {
+      it(`should handle invalid input: ${JSON.stringify(input)}`, async () => {
+        const result = await run(input as any);
+        validateFailureResponseStructure(result, expectedMessage);
+      });
+    });
+  });
+
+  describe('event validation', () => {
+    const testCases = createInvalidEventTestCases();
     
-    expect(usersMapping.possible_record_type_mappings).toHaveLength(1);
+    testCases.forEach(({ name, eventModifier, expectedMessage }) => {
+      it(`should handle ${name}`, async () => {
+        const mockEvent = createMockEvent();
+        const invalidEvent = eventModifier(mockEvent);
+        const result = await run([invalidEvent as any]);
+        validateFailureResponseStructure(result, expectedMessage);
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    const scenarios = createErrorHandlingScenarios();
+
+    it(scenarios.validationError.description, async () => {
+      const consoleSpy = jest.spyOn(console, 'error');
+      
+      const result = await run([]);
+
+      expect(consoleSpy).toHaveBeenCalledWith('Get initial domain mapping function error:', scenarios.validationError.expectedConsoleLog);
+      validateFailureResponseStructure(result, scenarios.validationError.expectedMessage);
+    });
+
+    it(scenarios.unknownError.description, async () => {
+      const consoleSpy = jest.spyOn(console, 'error');
+      
+      // Create a mock that will cause an unknown error
+      const mockEvent = createMockEvent();
+      Object.defineProperty(mockEvent, 'context', {
+        get: () => {
+          throw 'string error'; // Non-Error object
+        }
+      });
+
+      const result = await run([mockEvent]);
+
+      validateFailureResponseStructure(result, scenarios.unknownError.expectedMessage);
+      expect(consoleSpy).toHaveBeenCalledWith('Get initial domain mapping function error:', scenarios.unknownError.expectedConsoleLog);
+    });
+  });
+
+  it('should process only the first event when multiple events are provided', async () => {
+    const mockEvent1 = createMockEvent();
+    const mockEvent2 = createMockEvent();
+    mockEvent2.context.dev_oid = 'different-dev-oid';
+
+    const result = await run([mockEvent1, mockEvent2]);
+
+    expect(result.status).toBe('success');
+    expect(result.message).toBe('Successfully retrieved initial domain mapping');
+    expect(result.mapping).toEqual(initialDomainMapping);
+  });
+
+  it('should return consistent mapping across multiple calls', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
+
+    const result1 = await run(events);
+    const result2 = await run(events);
+
+    expect(result1.mapping).toEqual(result2.mapping);
+    expect(result1.status).toBe(result2.status);
+    expect(result1.message).toBe(result2.message);
+  });
+
+  it('should validate that users mapping has correct default mapping to devu', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
+
+    const result = await run(events);
+
+    expect(result.status).toBe('success');
+    expect(result.mapping.additional_mappings.record_type_mappings.users.default_mapping).toEqual({
+      object_category: 'stock',
+      object_type: 'devu',
+    });
+  });
+
+  it('should validate that field mappings use correct external fields', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
+
+    const result = await run(events);
+
+    expect(result.status).toBe('success');
+    const stockFieldMappings = result.mapping.additional_mappings.record_type_mappings.users.possible_record_type_mappings[0].shard.stock_field_mappings;
     
-    const possibleMapping = usersMapping.possible_record_type_mappings[0];
-    expect(possibleMapping.devrev_leaf_type).toBe('devu');
+    expect(stockFieldMappings.full_name.primary_external_field).toBe('full_name');
+    expect(stockFieldMappings.display_name.primary_external_field).toBe('username');
+  });
+
+  it('should validate that mapping is one-way (forward only)', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
+
+    const result = await run(events);
+
+    expect(result.status).toBe('success');
+    const possibleMapping = result.mapping.additional_mappings.record_type_mappings.users.possible_record_type_mappings[0];
+    
     expect(possibleMapping.forward).toBe(true);
     expect(possibleMapping.reverse).toBe(false);
-    expect(possibleMapping.shard.mode).toBe('create_shard');
   });
 
-  it('should have correct stock field mappings for full_name', async () => {
-    const result = await run([createMockEvent()]);
-    const stockFieldMappings = getUsersStockFieldMappings(result.initial_domain_mapping);
-    
-    expect(stockFieldMappings.full_name).toEqual(expectedFullNameMapping);
-  });
+  it('should validate that cards mapping has correct default mapping to issue', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
 
-  it('should have correct stock field mappings for display_name', async () => {
-    const result = await run([createMockEvent()]);
-    const stockFieldMappings = getUsersStockFieldMappings(result.initial_domain_mapping);
-    
-    expect(stockFieldMappings.display_name).toEqual(expectedDisplayNameMapping);
-  });
+    const result = await run(events);
 
-  it('should have correct devrev_leaf_type in shard', async () => {
-    const result = await run([createMockEvent()]);
-    const shard = getUsersShard(result.initial_domain_mapping);
-    
-    expect(shard.devrev_leaf_type).toEqual(expectedDevrevLeafType);
-  });
-
-  it('should return the correct structure for cards record type mapping', async () => {
-    const result = await run([createMockEvent()]);
-    const cardsMapping = getCardsMapping(result.initial_domain_mapping);
-    
-    expect(cardsMapping).toBeDefined();
-    expect(cardsMapping.default_mapping).toEqual(expectedCardsDefaultMapping);
-    
-    expect(cardsMapping.possible_record_type_mappings).toHaveLength(1);
-    
-    const possibleMapping = cardsMapping.possible_record_type_mappings[0];
-    expect(possibleMapping.devrev_leaf_type).toBe('issue');
-    expect(possibleMapping.forward).toBe(true);
-    expect(possibleMapping.reverse).toBe(false);
-    expect(possibleMapping.shard.mode).toBe('create_shard');
-  });
-
-  it('should have correct stock field mappings for cards external fields', async () => {
-    const result = await run([createMockEvent()]);
-    const stockFieldMappings = getCardsStockFieldMappings(result.initial_domain_mapping);
-    
-    expect(stockFieldMappings.title).toEqual(expectedTitleMapping);
-    expect(stockFieldMappings.item_url_field).toEqual(expectedItemUrlFieldMapping);
-    expect(stockFieldMappings.body).toEqual(expectedBodyMapping);
-    expect(stockFieldMappings.owned_by_ids).toEqual(expectedOwnedByIdsMapping);
-  });
-
-  it('should have correct stock field mappings for cards fixed values', async () => {
-    const result = await run([createMockEvent()]);
-    const stockFieldMappings = getCardsStockFieldMappings(result.initial_domain_mapping);
-    
-    expect(stockFieldMappings.priority).toEqual(expectedPriorityMapping);
-    expect(stockFieldMappings.stage).toEqual(expectedStageMapping);
-  });
-
-  it('should have correct stock field mapping for cards DevRev record reference', async () => {
-    const result = await run([createMockEvent()]);
-    const stockFieldMappings = getCardsStockFieldMappings(result.initial_domain_mapping);
-    
-    expect(stockFieldMappings.applies_to_part_id).toEqual(expectedAppliesToPartIdMapping);
-  });
-
-  it('should have correct devrev_leaf_type in cards shard', async () => {
-    const result = await run([createMockEvent()]);
-    const shard = getCardsShard(result.initial_domain_mapping);
-    
-    expect(shard.devrev_leaf_type).toEqual(expectedCardsDevrevLeafType);
-  });
-
-  it('should return an error when no events are provided', async () => {
-    const result = await run([]);
-    
-    expect(result).toEqual({
-      initial_domain_mapping: {},
-      success: false,
-      message: 'Get initial domain mapping failed: No events provided'
+    expect(result.status).toBe('success');
+    expect(result.mapping.additional_mappings.record_type_mappings.cards.default_mapping).toEqual({
+      object_category: 'stock',
+      object_type: 'issue',
     });
   });
 
-  it('should handle undefined events array', async () => {
-    // @ts-ignore - Testing invalid input
-    const result = await run(undefined);
-    
-    expect(result).toEqual({
-      initial_domain_mapping: {},
-      success: false,
-      message: 'Get initial domain mapping failed: No events provided'
-    });
-  });
+  it('should validate that cards field mappings use correct transformation methods', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
 
-  it('should have both users and cards record type mappings', async () => {
-    const result = await run([createMockEvent()]);
-    const recordTypeMappings = result.initial_domain_mapping.additional_mappings.record_type_mappings;
+    const result = await run(events);
+
+    expect(result.status).toBe('success');
+    const stockFieldMappings = result.mapping.additional_mappings.record_type_mappings.cards.possible_record_type_mappings[0].shard.stock_field_mappings;
     
-    expect(Object.keys(recordTypeMappings)).toEqual(['users', 'cards']);
+    // Check external transformation methods
+    expect(stockFieldMappings.title.primary_external_field).toBe('name');
+    expect(stockFieldMappings.item_url_field.primary_external_field).toBe('url');
+    expect(stockFieldMappings.body.primary_external_field).toBe('description');
+    expect(stockFieldMappings.owned_by_ids.primary_external_field).toBe('id_members');
+    expect(stockFieldMappings.created_by_id.primary_external_field).toBe('created_by');
   });
 });

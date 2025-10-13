@@ -1,53 +1,61 @@
-import { spawn } from '@devrev/ts-adaas';
-import { EventType } from '@devrev/ts-adaas';
-import { FunctionInput } from '../../core/types';
 import { convertToAirdropEvent } from '../../core/utils';
+import { FunctionInput } from '../../core/types';
+import { spawn, EventType } from '@devrev/ts-adaas';
 
 /**
- * Function that tests the data extraction workflow.
- * 
- * @param events Array of function input events
- * @returns Object indicating the function execution status
+ * Data extraction check function that provides a test of the data extraction workflow.
+ * Handles EXTRACTION_DATA_START and EXTRACTION_DATA_CONTINUE events.
  */
-export async function run(events: FunctionInput[]): Promise<{ success: boolean, message: string }> {
+const run = async (events: FunctionInput[]): Promise<void> => {
   try {
-    // Process only the first event
-    if (!events || events.length === 0) {
-      throw new Error('No events provided');
+    // Validate input
+    if (!events || !Array.isArray(events)) {
+      throw new Error('Invalid input: events must be an array');
     }
 
+    if (events.length === 0) {
+      throw new Error('Invalid input: events array cannot be empty');
+    }
+
+    // Process only the first event as per requirements
     const event = events[0];
-    const airdropEvent = convertToAirdropEvent(event);
 
-    // Check if the event type is EXTRACTION_DATA_START or EXTRACTION_DATA_CONTINUE
-    if (
-      airdropEvent.payload.event_type !== EventType.ExtractionDataStart && 
-      airdropEvent.payload.event_type !== EventType.ExtractionDataContinue
-    ) {
-      return {
-        success: false,
-        message: `Unexpected event type: ${airdropEvent.payload.event_type}. Expected: ${EventType.ExtractionDataStart} or ${EventType.ExtractionDataContinue}`
-      };
+    // Validate event structure
+    if (!event) {
+      throw new Error('Invalid event: event cannot be null or undefined');
     }
 
-    // Spawn a worker thread to handle the data extraction
-    await spawn({
-      event: airdropEvent,
-      initialState: {
-        users: { completed: false }
-      },
-      workerPath: `${__dirname}/worker.ts`,
-    });
+    if (!event.payload) {
+      throw new Error('Invalid event: missing payload');
+    }
 
-    return {
-      success: true,
-      message: 'Data extraction check initiated successfully'
-    };
+    if (!event.payload.event_type) {
+      throw new Error('Invalid event: missing event_type in payload');
+    }
+
+    // Check if this is a supported event type
+    if (event.payload.event_type === EventType.ExtractionDataStart || 
+        event.payload.event_type === EventType.ExtractionDataContinue) {
+      
+      const workerPath = __dirname + '/workers/data-extraction-check.ts';
+      
+      await spawn({
+        event: convertToAirdropEvent(event),
+        workerPath: workerPath,
+        initialState: {},
+        initialDomainMapping: {},
+      });
+    } else {
+      throw new Error(`Unsupported event type: ${event.payload.event_type}. Expected: ${EventType.ExtractionDataStart} or ${EventType.ExtractionDataContinue}`);
+    }
   } catch (error) {
-    console.error('Error in data_extraction_check function:', error);
-    return {
-      success: false,
-      message: `Data extraction check failed: ${error instanceof Error ? error.message : String(error)}`
-    };
+    console.error('Data extraction check function error:', {
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      error_stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    throw error;
   }
-}
+};
+
+export default run;

@@ -1,144 +1,217 @@
+import { FunctionInput, Context, ExecutionMetadata, InputData } from '../../core/types';
 import { EventType } from '@devrev/ts-adaas';
-import { run } from './index';
-import { FunctionInput } from '../../core/types';
-import { spawn } from '@devrev/ts-adaas';
+import run from './index';
 
 // Mock the spawn function
 jest.mock('@devrev/ts-adaas', () => ({
   ...jest.requireActual('@devrev/ts-adaas'),
-  spawn: jest.fn().mockResolvedValue(undefined),
-  EventType: {
-    ExtractionDataStart: 'EXTRACTION_DATA_START',
-    ExtractionDataContinue: 'EXTRACTION_DATA_CONTINUE',
-  }
+  spawn: jest.fn(),
 }));
 
-describe('data_extraction_check function', () => {
-  const mockEvent: FunctionInput = {
-    payload: {
-      event_type: EventType.ExtractionDataStart,
-      connection_data: {
-        org_id: 'test-org-id',
-        org_name: 'test-org-name',
-        key: 'test-key',
-        key_type: 'test-key-type'
-      },
-      event_context: {
-        callback_url: 'test-callback-url',
-        dev_org: 'test-dev-org',
-        dev_org_id: 'test-dev-org-id',
-        dev_user: 'test-dev-user',
-        dev_user_id: 'test-dev-user-id',
-        external_sync_unit: 'test-external-sync-unit',
-        external_sync_unit_id: 'test-external-sync-unit-id',
-        external_sync_unit_name: 'test-external-sync-unit-name',
-        external_system: 'test-external-system',
-        external_system_type: 'test-external-system-type',
-        import_slug: 'test-import-slug',
-        mode: 'INITIAL',
-        request_id: 'test-request-id',
-        snap_in_slug: 'test-snap-in-slug',
-        snap_in_version_id: 'test-snap-in-version-id',
-        sync_run: 'test-sync-run',
-        sync_run_id: 'test-sync-run-id',
-        sync_tier: 'test-sync-tier',
-        sync_unit: 'test-sync-unit',
-        sync_unit_id: 'test-sync-unit-id',
-        uuid: 'test-uuid',
-        worker_data_url: 'test-worker-data-url'
-      },
-      event_data: {}
-    },
-    context: {
-      dev_oid: 'test-dev-oid',
-      source_id: 'test-source-id',
-      snap_in_id: 'test-snap-in-id',
-      snap_in_version_id: 'test-snap-in-version-id',
-      service_account_id: 'test-service-account-id',
-      secrets: {
-        service_account_token: 'test-token'
-      }
-    },
-    execution_metadata: {
-      request_id: 'test-request-id',
-      function_name: 'data_extraction_check',
-      event_type: 'test-event-type',
-      devrev_endpoint: 'https://api.devrev.ai'
-    },
-    input_data: {
-      global_values: {},
-      event_sources: {}
-    }
-  };
+// Mock the convertToAirdropEvent function
+jest.mock('../../core/utils', () => ({
+  convertToAirdropEvent: jest.fn((event) => event),
+}));
 
-  const mockContinueEvent = {
-    ...mockEvent,
-    payload: {
-      ...mockEvent.payload,
-      event_type: EventType.ExtractionDataContinue
-    }
-  };
+import { spawn } from '@devrev/ts-adaas';
+import { convertToAirdropEvent } from '../../core/utils';
+
+const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
+const mockConvertToAirdropEvent = convertToAirdropEvent as jest.MockedFunction<typeof convertToAirdropEvent>;
+
+describe('data_extraction_check function', () => {
+  const createMockContext = (): Context => ({
+    dev_oid: 'test-dev-oid',
+    source_id: 'test-source-id',
+    snap_in_id: 'test-snap-in-id',
+    snap_in_version_id: 'test-snap-in-version-id',
+    service_account_id: 'test-service-account-id',
+    secrets: {
+      service_account_token: 'test-token',
+    },
+  });
+
+  const createMockExecutionMetadata = (): ExecutionMetadata => ({
+    request_id: 'test-request-id',
+    function_name: 'data_extraction_check',
+    event_type: 'test-event',
+    devrev_endpoint: 'https://api.devrev.ai/',
+  });
+
+  const createMockInputData = (): InputData => ({
+    global_values: {},
+    event_sources: {},
+  });
+
+  const createMockEvent = (eventType: string = EventType.ExtractionDataStart): FunctionInput => ({
+    payload: { 
+      event_type: eventType,
+      connection_data: {},
+      event_context: {},
+    },
+    context: createMockContext(),
+    execution_metadata: createMockExecutionMetadata(),
+    input_data: createMockInputData(),
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockSpawn.mockResolvedValue(undefined);
+    mockConvertToAirdropEvent.mockImplementation((event) => event as any);
   });
 
-  it('should spawn a worker when given a valid EXTRACTION_DATA_START event', async () => {
-    const result = await run([mockEvent]);
-    
-    expect(spawn).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({
-      success: true,
-      message: 'Data extraction check initiated successfully'
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should successfully handle EXTRACTION_DATA_START event', async () => {
+    const mockEvent = createMockEvent(EventType.ExtractionDataStart);
+    const events = [mockEvent];
+
+    await run(events);
+
+    expect(mockConvertToAirdropEvent).toHaveBeenCalledWith(mockEvent);
+    expect(mockSpawn).toHaveBeenCalledWith({
+      event: mockEvent,
+      workerPath: expect.stringContaining('/workers/data-extraction-check.ts'),
+      initialState: {},
+      initialDomainMapping: {},
     });
   });
 
-  it('should spawn a worker when given a valid EXTRACTION_DATA_CONTINUE event', async () => {
-    const result = await run([mockContinueEvent]);
-    
-    expect(spawn).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({
-      success: true,
-      message: 'Data extraction check initiated successfully'
+  it('should successfully handle EXTRACTION_DATA_CONTINUE event', async () => {
+    const mockEvent = createMockEvent(EventType.ExtractionDataContinue);
+    const events = [mockEvent];
+
+    await run(events);
+
+    expect(mockConvertToAirdropEvent).toHaveBeenCalledWith(mockEvent);
+    expect(mockSpawn).toHaveBeenCalledWith({
+      event: mockEvent,
+      workerPath: expect.stringContaining('/workers/data-extraction-check.ts'),
+      initialState: {},
+      initialDomainMapping: {},
     });
   });
 
-  it('should return an error when no events are provided', async () => {
-    const result = await run([]);
-    
-    expect(spawn).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      success: false,
-      message: 'Data extraction check failed: No events provided'
-    });
+  it('should throw error when events is not an array', async () => {
+    await expect(run(null as any)).rejects.toThrow('Invalid input: events must be an array');
+    await expect(run(undefined as any)).rejects.toThrow('Invalid input: events must be an array');
+    await expect(run('not-array' as any)).rejects.toThrow('Invalid input: events must be an array');
   });
 
-  it('should handle undefined events array', async () => {
-    // @ts-ignore - Testing invalid input
-    const result = await run(undefined);
-    
-    expect(spawn).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      success: false,
-      message: 'Data extraction check failed: No events provided'
-    });
+  it('should throw error when events array is empty', async () => {
+    await expect(run([])).rejects.toThrow('Invalid input: events array cannot be empty');
   });
 
-  it('should return an error for unexpected event type', async () => {
-    const invalidEvent = {
+  it('should throw error when event is null or undefined', async () => {
+    await expect(run([null as any])).rejects.toThrow('Invalid event: event cannot be null or undefined');
+    await expect(run([undefined as any])).rejects.toThrow('Invalid event: event cannot be null or undefined');
+  });
+
+  it('should throw error when event is missing payload', async () => {
+    const mockEvent = createMockEvent();
+    const eventWithoutPayload = {
+      ...mockEvent,
+      payload: undefined,
+    } as any;
+
+    await expect(run([eventWithoutPayload])).rejects.toThrow('Invalid event: missing payload');
+  });
+
+  it('should throw error when event is missing event_type', async () => {
+    const mockEvent = createMockEvent();
+    const eventWithoutEventType = {
       ...mockEvent,
       payload: {
         ...mockEvent.payload,
-        event_type: 'SOME_OTHER_EVENT_TYPE'
+        event_type: undefined,
+      },
+    } as any;
+
+    await expect(run([eventWithoutEventType])).rejects.toThrow('Invalid event: missing event_type in payload');
+  });
+
+  it('should throw error for unsupported event type', async () => {
+    const mockEvent = createMockEvent('UNSUPPORTED_EVENT_TYPE');
+    const events = [mockEvent];
+
+    await expect(run(events)).rejects.toThrow('Unsupported event type: UNSUPPORTED_EVENT_TYPE. Expected: EXTRACTION_DATA_START or EXTRACTION_DATA_CONTINUE');
+  });
+
+  it('should process only the first event when multiple events are provided', async () => {
+    const mockEvent1 = createMockEvent(EventType.ExtractionDataStart);
+    const mockEvent2 = createMockEvent(EventType.ExtractionDataContinue);
+    mockEvent2.context.dev_oid = 'different-dev-oid';
+
+    await run([mockEvent1, mockEvent2]);
+
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    expect(mockConvertToAirdropEvent).toHaveBeenCalledWith(mockEvent1);
+  });
+
+  it('should log error details when validation fails', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
+    
+    try {
+      await run([]);
+    } catch (error) {
+      // Expected to throw
+    }
+
+    expect(consoleSpy).toHaveBeenCalledWith('Data extraction check function error:', {
+      error_message: 'Invalid input: events array cannot be empty',
+      error_stack: expect.any(String),
+      timestamp: expect.any(String),
+    });
+  });
+
+  it('should handle spawn errors gracefully', async () => {
+    const spawnError = new Error('Spawn failed');
+    mockSpawn.mockRejectedValue(spawnError);
+    
+    const mockEvent = createMockEvent(EventType.ExtractionDataStart);
+    const events = [mockEvent];
+
+    await expect(run(events)).rejects.toThrow('Spawn failed');
+  });
+
+  it('should handle unknown errors gracefully', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
+    
+    // Create a mock that will cause an unknown error
+    const mockEvent = createMockEvent();
+    Object.defineProperty(mockEvent, 'payload', {
+      get: () => {
+        throw 'string error'; // Non-Error object
       }
-    };
-    
-    const result = await run([invalidEvent]);
-    
-    expect(spawn).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      success: false,
-      message: 'Unexpected event type: SOME_OTHER_EVENT_TYPE. Expected: EXTRACTION_DATA_START or EXTRACTION_DATA_CONTINUE'
+    });
+
+    try {
+      await run([mockEvent]);
+    } catch (error) {
+      // Expected to throw
+    }
+
+    expect(consoleSpy).toHaveBeenCalledWith('Data extraction check function error:', {
+      error_message: 'Unknown error',
+      error_stack: undefined,
+      timestamp: expect.any(String),
+    });
+  });
+
+  it('should use correct worker path', async () => {
+    const mockEvent = createMockEvent(EventType.ExtractionDataStart);
+    const events = [mockEvent];
+
+    await run(events);
+
+    expect(mockSpawn).toHaveBeenCalledWith({
+      event: mockEvent,
+      workerPath: expect.stringMatching(/\/workers\/data-extraction-check\.ts$/),
+      initialState: {},
+      initialDomainMapping: {},
     });
   });
 });

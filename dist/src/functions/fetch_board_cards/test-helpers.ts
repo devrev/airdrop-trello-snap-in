@@ -1,109 +1,193 @@
 import { FunctionInput } from '../../core/types';
-import { TrelloClient } from '../../core/trello-client';
+import { FetchBoardCardsResponse } from './index';
+import { TrelloCard, TrelloApiResponse } from '../../core/trello-client';
+import { createMockEvent } from './test-setup';
 
-export const mockCards = [
-  {
-    id: 'card1',
-    name: 'Test Card 1',
-    desc: 'Test description 1',
-    closed: false,
-    attachments: []
-  },
-  {
-    id: 'card2',
-    name: 'Test Card 2',
-    desc: 'Test description 2',
-    closed: false,
-    attachments: [
-      {
-        id: 'attachment1',
-        name: 'test-attachment.pdf',
-        url: 'https://example.com/attachment1'
-      }
-    ]
-  }
-];
-
-export const createMockEvent = (overrides: any = {}): FunctionInput => ({
-  payload: {
-    connection_data: {
-      org_id: 'test-org-id',
-      org_name: 'test-org-name',
-      key: 'key=test-api-key&token=test-token',
-      key_type: 'test-key-type'
+/**
+ * Creates test scenarios for various board cards configurations
+ */
+export const createBoardCardsTestScenarios = () => {
+  return {
+    emptyCards: {
+      description: 'should handle empty board cards response',
+      mockResponse: {
+        data: [],
+        status_code: 200,
+        api_delay: 0,
+        message: 'Successfully retrieved board cards',
+      } as TrelloApiResponse<TrelloCard[]>,
+      expectedCards: [],
     },
-    event_context: {
-      external_sync_unit_id: 'test-board-id',
-      callback_url: 'test-callback-url',
-      dev_org: 'test-dev-org',
-      dev_org_id: 'test-dev-org-id',
-      dev_user: 'test-dev-user',
-      dev_user_id: 'test-dev-user-id',
-      external_sync_unit: 'test-external-sync-unit',
-      external_sync_unit_name: 'test-external-sync-unit-name',
-      external_system: 'test-external-system',
-      external_system_type: 'test-external-system-type',
-      import_slug: 'test-import-slug',
-      mode: 'INITIAL',
-      request_id: 'test-request-id',
-      snap_in_slug: 'test-snap-in-slug',
-      snap_in_version_id: 'test-snap-in-version-id',
-      sync_run: 'test-sync-run',
-      sync_run_id: 'test-sync-run-id',
-      sync_tier: 'test-sync-tier',
-      sync_unit: 'test-sync-unit',
-      sync_unit_id: 'test-sync-unit-id',
-      uuid: 'test-uuid',
-      worker_data_url: 'test-worker-data-url'
+    customCard: {
+      description: 'should map card properties correctly',
+      mockResponse: {
+        data: [{
+          id: 'custom-card',
+          name: 'Custom Card',
+          desc: 'Custom description',
+          closed: false,
+          dateLastActivity: '2025-01-15T14:30:00.000Z',
+          customProperty: 'custom-value',
+        }],
+        status_code: 200,
+        api_delay: 0,
+        message: 'Successfully retrieved board cards',
+      } as TrelloApiResponse<TrelloCard[]>,
+      expectedCard: {
+        id: 'custom-card',
+        name: 'Custom Card',
+        desc: 'Custom description',
+        closed: false,
+        date_last_activity: '2025-01-15T14:30:00.000Z',
+        customProperty: 'custom-value',
+      },
     },
-    ...overrides.payload
-  },
-  context: {
-    dev_oid: 'test-dev-oid',
-    source_id: 'test-source-id',
-    snap_in_id: 'test-snap-in-id',
-    snap_in_version_id: 'test-snap-in-version-id',
-    service_account_id: 'test-service-account-id',
-    secrets: {
-      service_account_token: 'test-token'
+    serverError: {
+      description: 'should handle server errors correctly',
+      mockResponse: {
+        status_code: 500,
+        api_delay: 0,
+        message: 'Trello API server error',
+      } as TrelloApiResponse,
     },
-    ...overrides.context
-  },
-  execution_metadata: {
-    request_id: 'test-request-id',
-    function_name: 'fetch_board_cards',
-    event_type: 'test-event-type',
-    devrev_endpoint: 'https://api.devrev.ai',
-    ...overrides.execution_metadata
-  },
-  input_data: {
-    global_values: {
-      limit: '10'
+    notFoundError: {
+      description: 'should handle board not found errors',
+      mockResponse: {
+        status_code: 404,
+        api_delay: 0,
+        message: 'Board not found',
+      } as TrelloApiResponse,
     },
-    event_sources: {},
-    ...overrides.input_data
-  }
-});
-
-export const setupTrelloClientMock = (mockResponse: any) => {
-  // Mock the static parseCredentials method
-  jest.spyOn(TrelloClient, 'parseCredentials').mockReturnValue({
-    apiKey: 'test-api-key',
-    token: 'test-token',
-  });
-
-  const mockGetBoardCards = jest.fn().mockResolvedValue(mockResponse);
-
-  // Mock the constructor
-  (TrelloClient as jest.MockedClass<typeof TrelloClient>).mockImplementation(() => ({
-    getBoardCards: mockGetBoardCards,
-  } as any));
-
-  return mockGetBoardCards;
+    successWithoutData: {
+      description: 'should handle successful response without cards data',
+      mockResponse: {
+        status_code: 200,
+        api_delay: 0,
+        message: 'Success but no data',
+      } as TrelloApiResponse,
+    },
+  };
 };
 
-export const setupTrelloClientParseError = (errorMessage: string) => {
-  jest.spyOn(TrelloClient, 'parseCredentials').mockImplementation(() => {
-    throw new Error(errorMessage);
-  });
+/**
+ * Creates test cases for multiple events scenarios
+ */
+export const createMultipleEventsTestCase = () => {
+  const mockEvent1 = createMockEvent('key=api-key-1&token=token-1', 'board-1', '5');
+  const mockEvent2 = createMockEvent('key=api-key-2&token=token-2', 'board-2', '10');
+  
+  return {
+    events: [mockEvent1, mockEvent2],
+    expectedConnectionData: 'key=api-key-1&token=token-1',
+    expectedBoardId: 'board-1',
+    expectedLimit: 5,
+    description: 'should process only the first event when multiple events are provided',
+  };
+};
+
+/**
+ * Creates test cases for error scenarios
+ */
+export const createErrorTestScenarios = () => {
+  return {
+    clientCreationError: {
+      description: 'should handle TrelloClient creation errors',
+      errorMessage: 'Invalid connection data format',
+      setupMock: (TrelloClientMock: any) => {
+        jest.spyOn(TrelloClientMock, 'fromConnectionData').mockImplementation(() => {
+          throw new Error('Invalid connection data format');
+        });
+      },
+    },
+    apiCallError: {
+      description: 'should handle API call errors',
+      errorMessage: 'Network error',
+      setupMock: (mockInstance: any) => {
+        mockInstance.getBoardCards.mockRejectedValue(new Error('Network error'));
+      },
+    },
+    unknownError: {
+      description: 'should handle unknown errors gracefully',
+      errorMessage: 'Unknown error occurred during board cards fetching',
+      createEvent: () => {
+        const mockEvent = createMockEvent();
+        Object.defineProperty(mockEvent, 'payload', {
+          get: () => {
+            throw 'string error'; // Non-Error object
+          }
+        });
+        return mockEvent;
+      },
+      expectedConsoleLog: {
+        error_message: 'Unknown error',
+        error_stack: undefined,
+        timestamp: expect.any(String),
+      },
+    },
+  };
+};
+
+/**
+ * Validates that a response matches the expected success pattern
+ */
+export const validateSuccessResponseStructure = (result: FetchBoardCardsResponse) => {
+  expect(result.status).toBe('success');
+  expect(result.status_code).toBe(200);
+  expect(result.api_delay).toBe(0);
+  expect(result.message).toBe('Successfully retrieved board cards');
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.cards).toBeDefined();
+  expect(Array.isArray(result.cards)).toBe(true);
+};
+
+/**
+ * Validates that a response matches the expected failure pattern
+ */
+export const validateFailureResponseStructure = (
+  result: FetchBoardCardsResponse,
+  expectedStatusCode: number,
+  expectedMessage: string,
+  expectedApiDelay: number = 0
+) => {
+  expect(result.status).toBe('failure');
+  expect(result.status_code).toBe(expectedStatusCode);
+  expect(result.api_delay).toBe(expectedApiDelay);
+  expect(result.message).toBe(expectedMessage);
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.cards).toBeUndefined();
+};
+
+/**
+ * Creates pagination test scenarios
+ */
+export const createPaginationTestScenarios = () => {
+  return {
+    withBefore: {
+      description: 'should handle pagination with before parameter',
+      createEvent: () => createMockEvent('key=test&token=test', 'board-123', '5', 'card-456'),
+      expectedParams: { limit: 5, before: 'card-456' },
+    },
+    withoutBefore: {
+      description: 'should handle pagination without before parameter',
+      createEvent: () => createMockEvent('key=test&token=test', 'board-123', '10'),
+      expectedParams: { limit: 10, before: undefined },
+    },
+    invalidLimit: {
+      description: 'should handle invalid limit parameter',
+      createEvent: () => createMockEvent('key=test&token=test', 'board-123', 'invalid'),
+      expectedError: 'Invalid event: limit must be a positive integer',
+    },
+    zeroLimit: {
+      description: 'should handle zero limit parameter',
+      createEvent: () => createMockEvent('key=test&token=test', 'board-123', '0'),
+      expectedError: 'Invalid event: limit must be a positive integer',
+    },
+    negativeLimit: {
+      description: 'should handle negative limit parameter',
+      createEvent: () => createMockEvent('key=test&token=test', 'board-123', '-5'),
+      expectedError: 'Invalid event: limit must be a positive integer',
+    },
+  };
 };

@@ -1,157 +1,97 @@
-import axios from 'axios';
-import express from 'express';
-import { Server } from 'http';
+import { setupCallbackServer, sendEventToSnapIn, CallbackServerSetup } from './test-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Constants
-const SNAP_IN_SERVER_URL = 'http://localhost:8000/handle/sync';
-const CALLBACK_SERVER_PORT = 8002;
-const CALLBACK_SERVER_URL = `http://localhost:${CALLBACK_SERVER_PORT}`;
-// Use a hardcoded test data since we can't be sure of the exact file structure
-const TEST_DATA = [
-    {
-        "execution_metadata": {
-            "function_name": "data_extraction_check",
-            "devrev_endpoint": "http://localhost:8003"
-        },
-        "payload" : {
-            "event_type": "EXTRACTION_DATA_START",
-            "event_context": {
-                "callback_url": "http://localhost:8002/callback",
-                "dev_org": "test-dev-org",
-                "external_sync_unit_id": "test-external-sync-unit",
-                "sync_unit_id": "test-sync-unit",
-                "worker_data_url": "http://localhost:8003/external-worker"
-            },
-            "connection_data": {
-                "org_id": "test-org-id",
-                "key": "key=test-key&token=test-token"
-            }
-        },
-        "context": {
-            "secrets": {
-                "service_account_token": "test-token"
-            }
-        }
-    }
-];
-
-// Types
-interface EventContext {
-  callback_url: string;
-  [key: string]: any;
-}
-
-interface AirdropEvent {
-  context: {
-    secrets: {
-      service_account_token: string;
-    };
-    [key: string]: any;
-  };
-  payload: {
-    event_type: string;
-    event_context: EventContext;
-    connection_data?: any;
-    event_data?: any;
-  };
-  execution_metadata: {
-    devrev_endpoint: string;
-    function_name: string;
-    [key: string]: any;
-  };
-  input_data?: any;
-}
-
-// Setup callback server to receive emitted events
-let callbackServer: Server;
-let receivedEvents: any[] = [];
-
-beforeAll(async () => {
-  // Setup callback server
-  const app = express();
-  app.use(express.json());
-  
-  app.post('/callback', (req, res) => {
-    console.log('Received callback event:', JSON.stringify(req.body, null, 2));
-    receivedEvents.push(req.body);
-    res.status(200).send({ success: true });
-  });
-  
-  return new Promise<void>((resolve) => {
-    callbackServer = app.listen(CALLBACK_SERVER_PORT, () => {
-      console.log(`Callback server running at ${CALLBACK_SERVER_URL}`);
-      resolve();
-    });
-  });
-});
-
-afterAll(async () => {
-  // Shutdown callback server
-  return new Promise<void>((resolve) => {
-    callbackServer.close(() => {
-      console.log('Callback server closed');
-      resolve();
-    });
-  });
-});
-
-beforeEach(() => {
-  // Clear received events before each test
-  receivedEvents = [];
-});
-
 describe('Data Extraction Check Acceptance Test', () => {
-  test('should process data extraction event from JSON resource and emit EXTRACTION_DATA_DONE', async () => {
-    // Use the hardcoded test data that matches the resource file
-    const testData = TEST_DATA;
+  let callbackServer: CallbackServerSetup;
+  
+  beforeAll(async () => {
+    try {
+      callbackServer = await setupCallbackServer();
+    } catch (error) {
+      throw new Error(`Failed to setup callback server for acceptance test: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+  
+  afterAll(async () => {
+    if (callbackServer?.server) {
+      await new Promise<void>((resolve) => {
+        callbackServer.server.close(() => resolve());
+      });
+    }
+  });
+  
+  beforeEach(() => {
+    // Clear received events before each test
+    callbackServer.receivedEvents.length = 0;
+  });
+
+  test('should complete data extraction workflow using resource event and emit EXTRACTION_DATA_DONE', async () => {
+    let testEvent;
     
-    // Verify test data is valid
-    expect(testData).toBeDefined();
-    expect(Array.isArray(testData)).toBe(true);
-    expect(testData.length).toBeGreaterThan(0);
-    
-    // Get the first event from the test data
-    const event = testData[0];
-    
-    // Verify the event has the expected structure
-    expect(event.payload.event_type).toBe('EXTRACTION_DATA_START');
-    expect(event.execution_metadata.function_name).toBe('data_extraction_check');
-    
-    // Update the callback URL to point to our test server
-    event.payload.event_context.callback_url = `${CALLBACK_SERVER_URL}/callback`;
-    
-    // Send the event to the snap-in server
-    console.log('Sending event to snap-in server');
-    const response = await axios.post(SNAP_IN_SERVER_URL, event);
-    
-    // Verify the response
-    expect(response.status).toBe(200);
-    expect(response.data.function_result).toBeDefined();
-    expect(response.data.function_result.success).toBe(true);
-    expect(response.data.function_result.message).toContain('Data extraction check initiated successfully');
-    
-    // Wait for the callback to be received (the worker emits the event)
-    console.log('Waiting for callback event...');
-    const waitTime = 5000; // 5 seconds
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-    
-    // Check if we received any events
-    if (receivedEvents.length === 0) {
-      throw new Error(`No events received after waiting ${waitTime}ms`);
+    try {
+      // Load the test event from the JSON file
+      const eventFilePath = path.join(__dirname, 'data-extraction-check-event.json');
+      
+      if (!fs.existsSync(eventFilePath)) {
+        throw new Error(`Test event file not found at path: ${eventFilePath}`);
+      }
+      
+      const eventFileContent = fs.readFileSync(eventFilePath, 'utf8');
+      testEvent = JSON.parse(eventFileContent);
+      
+      // Validate the loaded event structure
+      if (!testEvent.payload || !testEvent.payload.event_type) {
+        throw new Error(`Invalid test event structure. Missing payload.event_type. Event: ${JSON.stringify(testEvent, null, 2)}`);
+      }
+      
+      if (testEvent.payload.event_type !== 'EXTRACTION_DATA_START') {
+        throw new Error(`Expected EXTRACTION_DATA_START event type but found: ${testEvent.payload.event_type}`);
+      }
+      
+    } catch (error) {
+      throw new Error(`Failed to load or parse test event from JSON file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
-    // Log all received events for debugging
-    console.log(`Received ${receivedEvents.length} events`);
-    receivedEvents.forEach((e, i) => {
-      console.log(`Event ${i + 1}:`, JSON.stringify(e, null, 2));
-    });
-    
-    // Check if we received the EXTRACTION_DATA_DONE event
-    const doneEvent = receivedEvents.find(e => e.event_type === 'EXTRACTION_DATA_DONE');
-    
-    expect(doneEvent).toBeDefined();
-    expect(doneEvent?.event_type).toBe('EXTRACTION_DATA_DONE');
-  }, 30000); // Increase timeout to 30 seconds for this test
+    try {
+      // Send the event to the snap-in server
+      const response = await sendEventToSnapIn(testEvent);
+      
+      // Verify the function was invoked successfully
+      if (!response) {
+        throw new Error('No response received from snap-in server');
+      }
+      
+      if (response.error) {
+        throw new Error(`Function execution failed with error: ${JSON.stringify(response.error, null, 2)}. Original event: ${JSON.stringify(testEvent, null, 2)}`);
+      }
+      
+      // Wait for the callback event from DevRev indicating completion
+      const callbackEvent = await callbackServer.waitForEvent(20000);
+      
+      // Verify the callback event was received
+      if (!callbackEvent) {
+        throw new Error(`No callback event received from DevRev. Expected EXTRACTION_DATA_DONE event. Received events count: ${callbackServer.receivedEvents.length}. Events: ${JSON.stringify(callbackServer.receivedEvents, null, 2)}`);
+      }
+      
+      // Verify the event type is exactly what we expect
+      if (!callbackEvent.event_type) {
+        throw new Error(`Callback event missing event_type field. Received event structure: ${JSON.stringify(callbackEvent, null, 2)}`);
+      }
+      
+      if (callbackEvent.event_type !== 'EXTRACTION_DATA_DONE') {
+        throw new Error(`Expected callback event with event_type 'EXTRACTION_DATA_DONE' but received '${callbackEvent.event_type}'. Full callback event: ${JSON.stringify(callbackEvent, null, 2)}. All received events: ${JSON.stringify(callbackServer.receivedEvents, null, 2)}`);
+      }
+      
+      // Test passes - we received the expected EXTRACTION_DATA_DONE event
+      expect(callbackEvent.event_type).toBe('EXTRACTION_DATA_DONE');
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const receivedEventsCount = callbackServer.receivedEvents.length;
+      const receivedEvents = JSON.stringify(callbackServer.receivedEvents, null, 2);
+      
+      throw new Error(`Acceptance test failed for data extraction check function. Error: ${errorMessage}. Received callback events: ${receivedEventsCount}. Event details: ${receivedEvents}. Original test event: ${JSON.stringify(testEvent, null, 2)}`);
+    }
+  }, 60000);
 });

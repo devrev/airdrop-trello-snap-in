@@ -1,0 +1,135 @@
+{
+  "additional_mappings": {
+    "record_type_mappings": {
+      "users": {
+        "default_mapping": {
+          "object_category": "stock",
+          "object_type": "devu"
+        },
+        "possible_record_type_mappings": [
+          {
+            "devrev_leaf_type": "devu",
+            "forward": true,
+            "reverse": false,
+            "shard": {
+              "mode": "create_shard",
+              "devrev_leaf_type": {
+                "object_category": "stock",
+                "object_type": "devu"
+              },
+              "stock_field_mappings": {
+                "full_name": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "full_name",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "display_name": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "username",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_directly"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "cards": {
+        "default_mapping": {
+          "object_category": "stock",
+          "object_type": "issue"
+        },
+        "possible_record_type_mappings": [
+          {
+            "devrev_leaf_type": "issue",
+            "forward": true,
+            "reverse": false,
+            "shard": {
+              "mode": "create_shard",
+              "devrev_leaf_type": {
+                "object_category": "stock",
+                "object_type": "issue"
+              },
+              "stock_field_mappings": {
+                "title": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "name",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "item_url_field": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "url",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "body": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "description",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_rich_text"
+                  }
+                },
+                "owned_by_ids": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "id_members",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "created_by_id": {
+                  "forward": true,
+                  "reverse": false,
+                  "primary_external_field": "created_by",
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "priority": {
+                  "forward": true,
+                  "reverse": false,
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_fixed_value",
+                    "value": "enum_value",
+                    "enum": "P2"
+                  }
+                },
+                "stage": {
+                  "forward": true,
+                  "reverse": false,
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_fixed_value",
+                    "value": "enum_value",
+                    "enum": "triage"
+                  }
+                },
+                "applies_to_part_id": {
+                  "forward": true,
+                  "reverse": false,
+                  "transformation_method_for_set": {
+                    "transformation_method": "use_devrev_record",
+                    "leaf_type": {
+                      "object_category": "stock",
+                      "object_type": "product"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

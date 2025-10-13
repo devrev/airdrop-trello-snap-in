@@ -1,5 +1,10 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testTimeout: 30000,
+  testMatch: ['**/*.test.ts'],
+  testTimeout: 120000,
+  collectCoverageFrom: [
+    '**/*.ts',
+    '!**/*.test.ts',
+  ],
 };

@@ -1,191 +1,179 @@
-import { run } from './index';
-import { FunctionInput } from '../../core/types';
-import { TrelloClient } from '../../core/trello-client';
-
-// Mock the TrelloClient
+// Mock the TrelloClient module before importing
 jest.mock('../../core/trello-client');
 
+import run from './index';
+import { TrelloClient } from '../../core/trello-client';
+import {
+  setupMockTrelloClient,
+  createMockEvent,
+  successfulMemberResponse,
+  authFailureResponse,
+  rateLimitResponse,
+  setupConsoleSpies,
+  clearAllMocks,
+  mockFromConnectionData,
+  expectSuccessResponse,
+  expectFailureResponse,
+  createInvalidInputTestCases,
+  createInvalidEventTestCases,
+} from './test-setup';
+
 describe('check_authentication function', () => {
-  const mockEvent: FunctionInput = {
-    payload: {
-      connection_data: {
-        org_id: 'test-org-id',
-        org_name: 'test-org-name',
-        key: 'key=test-api-key&token=test-token',
-        key_type: 'test-key-type'
-      }
-    },
-    context: {
-      dev_oid: 'test-dev-oid',
-      source_id: 'test-source-id',
-      snap_in_id: 'test-snap-in-id',
-      snap_in_version_id: 'test-snap-in-version-id',
-      service_account_id: 'test-service-account-id',
-      secrets: {
-        service_account_token: 'test-token'
-      }
-    },
-    execution_metadata: {
-      request_id: 'test-request-id',
-      function_name: 'check_authentication',
-      event_type: 'test-event-type',
-      devrev_endpoint: 'https://api.devrev.ai'
-    },
-    input_data: {
-      global_values: {},
-      event_sources: {}
-    }
-  };
+  let mockTrelloClientInstance: jest.Mocked<TrelloClient>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    clearAllMocks();
+    setupConsoleSpies();
+    mockTrelloClientInstance = setupMockTrelloClient();
   });
 
-  it('should return authenticated true when API call succeeds', async () => {
-    // Mock the static parseCredentials method
-    const parseCredentialsSpy = jest.spyOn(TrelloClient, 'parseCredentials').mockReturnValue({
-      apiKey: 'test-api-key',
-      token: 'test-token',
-    });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-    const mockGetCurrentMember = jest.fn().mockResolvedValue({
-      data: { id: 'user123', username: 'testuser' },
-      status_code: 200,
-      api_delay: 0,
-      message: 'Successfully authenticated with Trello API',
-    });
+  it('should return success response for valid authentication', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockResolvedValue(successfulMemberResponse);
 
-    // Mock the constructor
-    (TrelloClient as jest.MockedClass<typeof TrelloClient>).mockImplementation(() => ({
-      getCurrentMember: mockGetCurrentMember,
-    } as any));
-
+    const mockEvent = createMockEvent();
     const result = await run([mockEvent]);
 
-    expect(result).toEqual({
-      authenticated: true,
-      status_code: 200,
-      api_delay: 0,
-      message: 'Successfully authenticated with Trello API',
+    expectSuccessResponse(result, {
+      id: 'member-123',
+      username: 'testuser',
+      full_name: 'Test User',
     });
   });
 
-  it('should return authenticated false when API call fails with 401', async () => {
-    // Mock the static parseCredentials method
-    const parseCredentialsSpy = jest.spyOn(TrelloClient, 'parseCredentials').mockReturnValue({
-      apiKey: 'invalid-key',
-      token: 'invalid-token',
-    });
+  it('should return failure response for invalid authentication', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockResolvedValue(authFailureResponse);
 
-    const mockGetCurrentMember = jest.fn().mockResolvedValue({
-      status_code: 401,
-      api_delay: 0,
-      message: 'Authentication failed. Invalid API key or token',
-    });
-
-    // Mock the constructor
-    (TrelloClient as jest.MockedClass<typeof TrelloClient>).mockImplementation(() => ({
-      getCurrentMember: mockGetCurrentMember,
-    } as any));
-
+    const mockEvent = createMockEvent();
     const result = await run([mockEvent]);
 
-    expect(result).toEqual({
-      authenticated: false,
-      status_code: 401,
-      api_delay: 0,
-      message: 'Authentication failed. Invalid API key or token',
-    });
+    expectFailureResponse(result, 401, 'Authentication failed - invalid API key or token');
   });
 
-  it('should handle rate limiting with proper api_delay', async () => {
-    // Mock the static parseCredentials method
-    const parseCredentialsSpy = jest.spyOn(TrelloClient, 'parseCredentials').mockReturnValue({
-      apiKey: 'test-api-key',
-      token: 'test-token',
-    });
+  it('should handle rate limiting correctly', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockResolvedValue(rateLimitResponse);
 
-    const mockGetCurrentMember = jest.fn().mockResolvedValue({
-      status_code: 429,
-      api_delay: 30,
-      message: 'Rate limit exceeded. Retry after 30 seconds',
-    });
-
-    // Mock the constructor
-    (TrelloClient as jest.MockedClass<typeof TrelloClient>).mockImplementation(() => ({
-      getCurrentMember: mockGetCurrentMember,
-    } as any));
-
+    const mockEvent = createMockEvent();
     const result = await run([mockEvent]);
 
-    expect(result).toEqual({
-      authenticated: false,
-      status_code: 429,
-      api_delay: 30,
-      message: 'Rate limit exceeded. Retry after 30 seconds',
+    expectFailureResponse(result, 429, 'Rate limit exceeded - retry after 60 seconds', 60);
+  });
+
+  describe('input validation', () => {
+    const testCases = createInvalidInputTestCases();
+    
+    testCases.forEach(({ input, expectedMessage }) => {
+      it(`should handle invalid input: ${JSON.stringify(input)}`, async () => {
+        const result = await run(input as any);
+        expectFailureResponse(result, 500, expectedMessage);
+      });
     });
   });
 
-  it('should return error when no events are provided', async () => {
+  describe('event validation', () => {
+    const testCases = createInvalidEventTestCases();
+    
+    testCases.forEach(({ name, eventModifier, expectedMessage }) => {
+      it(`should handle ${name}`, async () => {
+        const mockEvent = createMockEvent();
+        const invalidEvent = eventModifier(mockEvent);
+        const result = await run([invalidEvent as any]);
+        expectFailureResponse(result, 500, expectedMessage);
+      });
+    });
+  });
+
+  it('should handle TrelloClient creation errors', async () => {
+    jest.spyOn(TrelloClient, 'fromConnectionData').mockImplementation(() => {
+      throw new Error('Invalid connection data format');
+    });
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 500, 'Invalid connection data format');
+  });
+
+  it('should handle API call errors', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockRejectedValue(new Error('Network error'));
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 500, 'Network error');
+  });
+
+  it('should process only the first event when multiple events are provided', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockResolvedValue(successfulMemberResponse);
+
+    const mockEvent1 = createMockEvent('key=api-key-1&token=token-1');
+    const mockEvent2 = createMockEvent('key=api-key-2&token=token-2');
+
+    const result = await run([mockEvent1, mockEvent2]);
+
+    expect(mockFromConnectionData()).toHaveBeenCalledTimes(1);
+    expect(mockFromConnectionData()).toHaveBeenCalledWith('key=api-key-1&token=token-1');
+    expectSuccessResponse(result);
+  });
+
+  it('should log error details when errors occur', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
+    
     const result = await run([]);
 
-    expect(result).toEqual({
-      authenticated: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Authentication check failed: No events provided',
+    expect(consoleSpy).toHaveBeenCalledWith('Authentication check function error:', {
+      error_message: 'Invalid input: events array cannot be empty',
+      error_stack: expect.any(String),
+      timestamp: expect.any(String),
     });
   });
 
-  it('should return error when connection data is missing', async () => {
-    const eventWithoutConnectionData = {
-      ...mockEvent,
-      payload: {}
-    };
-
-    const result = await run([eventWithoutConnectionData]);
-
-    expect(result).toEqual({
-      authenticated: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Authentication check failed: Missing connection data',
-    });
-  });
-
-  it('should return error when credentials parsing fails', async () => {
-    const eventWithInvalidKey = {
-      ...mockEvent,
-      payload: {
-        connection_data: {
-          key: 'invalid-format'
-        }
+  it('should handle unknown errors gracefully', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
+    
+    // Create a mock that will cause an unknown error
+    const mockEvent = createMockEvent();
+    Object.defineProperty(mockEvent, 'payload', {
+      get: () => {
+        throw 'string error'; // Non-Error object
       }
-    };
-
-    jest.spyOn(TrelloClient, 'parseCredentials').mockImplementation(() => {
-      throw new Error('Invalid connection data: missing API key or token');
     });
 
-    const result = await run([eventWithInvalidKey]);
+    const result = await run([mockEvent]);
 
-    expect(result).toEqual({
-      authenticated: false,
-      status_code: 0,
-      api_delay: 0,
-      message: 'Authentication check failed: Invalid connection data: missing API key or token',
+    expectFailureResponse(result, 500, 'Unknown error occurred during authentication check');
+    expect(consoleSpy).toHaveBeenCalledWith('Authentication check function error:', {
+      error_message: 'Unknown error',
+      error_stack: undefined,
+      timestamp: expect.any(String),
     });
   });
 
-  it('should handle undefined events array', async () => {
-    // @ts-ignore - Testing invalid input
-    const result = await run(undefined);
-
-    expect(result).toEqual({
-      authenticated: false,
-      status_code: 0,
+  it('should handle successful response without member data', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockResolvedValue({
+      status_code: 200,
       api_delay: 0,
-      message: 'Authentication check failed: No events provided',
+      message: 'Success but no data',
     });
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 200, 'Success but no data');
+  });
+
+  it('should create TrelloClient with correct connection data', async () => {
+    mockTrelloClientInstance.getCurrentMember.mockResolvedValue(successfulMemberResponse);
+
+    const connectionKey = 'key=my-api-key&token=my-oauth-token';
+    const mockEvent = createMockEvent(connectionKey);
+    
+    await run([mockEvent]);
+
+    expect(mockFromConnectionData()).toHaveBeenCalledWith(connectionKey);
+    expect(mockTrelloClientInstance.getCurrentMember).toHaveBeenCalledTimes(1);
   });
 });

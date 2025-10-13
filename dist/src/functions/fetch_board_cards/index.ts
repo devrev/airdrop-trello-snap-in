@@ -1,112 +1,140 @@
 import { FunctionInput } from '../../core/types';
 import { TrelloClient } from '../../core/trello-client';
 
-export interface FetchBoardCardsResult {
-  cards?: any[];
+export interface FetchBoardCardsResponse {
+  status: 'success' | 'failure';
   status_code: number;
   api_delay: number;
   message: string;
+  timestamp: string;
+  cards?: Array<{
+    id: string;
+    name: string;
+    desc?: string;
+    closed: boolean;
+    date_last_activity?: string;
+    [key: string]: any;
+  }>;
 }
 
 /**
- * Function that fetches cards for a board from Trello API.
- * 
- * @param events Array of function input events
- * @returns Object containing board cards data and API response info
+ * Fetch board cards function that retrieves the list of cards for a specific board.
+ * Makes a request to /boards/{id}/cards endpoint with pagination support.
  */
-export async function run(events: FunctionInput[]): Promise<FetchBoardCardsResult> {
+const run = async (events: FunctionInput[]): Promise<FetchBoardCardsResponse> => {
   try {
-    // Process only the first event
-    if (!events || events.length === 0) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch board cards failed: No events provided',
-      };
+    // Validate input
+    if (!events || !Array.isArray(events)) {
+      throw new Error('Invalid input: events must be an array');
     }
 
+    if (events.length === 0) {
+      throw new Error('Invalid input: events array cannot be empty');
+    }
+
+    // Process only the first event as per requirements
     const event = events[0];
-    
-    // Extract connection data
-    const connectionData = event.payload.connection_data;
-    if (!connectionData || !connectionData.key) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch board cards failed: Missing connection data',
-      };
+
+    // Validate event structure
+    if (!event) {
+      throw new Error('Invalid event: event cannot be null or undefined');
     }
 
-    // Extract board ID from external_sync_unit_id
-    const boardId = event.payload.event_context?.external_sync_unit_id;
-    if (!boardId) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch board cards failed: Missing board ID',
-      };
+    if (!event.payload) {
+      throw new Error('Invalid event: missing payload');
     }
 
-    // Extract pagination parameters
-    const globalValues = event.input_data.global_values;
-    const limitStr = globalValues?.limit;
-    if (!limitStr) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch board cards failed: Missing required limit parameter',
-      };
+    if (!event.payload.connection_data) {
+      throw new Error('Invalid event: missing connection_data in payload');
     }
 
-    const limit = parseInt(limitStr, 10);
+    if (!event.payload.connection_data.key) {
+      throw new Error('Invalid event: missing key in connection_data');
+    }
+
+    if (!event.payload.event_context) {
+      throw new Error('Invalid event: missing event_context in payload');
+    }
+
+    if (!event.payload.event_context.external_sync_unit_id) {
+      throw new Error('Invalid event: missing external_sync_unit_id in event_context');
+    }
+
+    if (!event.input_data) {
+      throw new Error('Invalid event: missing input_data');
+    }
+
+    if (!event.input_data.global_values) {
+      throw new Error('Invalid event: missing global_values in input_data');
+    }
+
+    if (!event.input_data.global_values.limit) {
+      throw new Error('Invalid event: missing limit in global_values');
+    }
+
+    // Extract parameters
+    const boardId = event.payload.event_context.external_sync_unit_id;
+    const limit = parseInt(event.input_data.global_values.limit, 10);
+    const before = event.input_data.global_values.before;
+
+    // Validate limit parameter
     if (isNaN(limit) || limit <= 0) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: 'Fetch board cards failed: Invalid limit parameter',
-      };
+      throw new Error('Invalid event: limit must be a positive integer');
     }
 
-    const before = globalValues?.before;
+    // Create Trello client from connection data
+    const trelloClient = TrelloClient.fromConnectionData(event.payload.connection_data.key);
 
-    // Parse API credentials
-    let credentials;
-    try {
-      credentials = TrelloClient.parseCredentials(connectionData.key);
-    } catch (error) {
-      return {
-        status_code: 0,
-        api_delay: 0,
-        message: `Fetch board cards failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-
-    // Initialize Trello client and fetch board cards
-    const trelloClient = new TrelloClient({
-      apiKey: credentials.apiKey,
-      token: credentials.token,
-    });
-
+    // Fetch board cards from Trello API
     const response = await trelloClient.getBoardCards(boardId, limit, before);
 
-    const result: FetchBoardCardsResult = {
-      status_code: response.status_code,
-      api_delay: response.api_delay,
-      message: response.message,
-    };
+    const timestamp = new Date().toISOString();
 
-    // Include cards data if successful
     if (response.status_code === 200 && response.data) {
-      result.cards = response.data;
+      // Successfully fetched board cards
+      return {
+        status: 'success',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: 'Successfully retrieved board cards',
+        timestamp,
+        cards: response.data.map(card => {
+          const { dateLastActivity, ...cardWithoutCamelCase } = card;
+          return {
+            ...cardWithoutCamelCase,
+            date_last_activity: dateLastActivity,
+          };
+        }),
+      };
+    } else {
+      // Failed to fetch board cards
+      return {
+        status: 'failure',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+        timestamp,
+      };
     }
-
-    return result;
   } catch (error) {
-    console.error('Error in fetch_board_cards function:', error);
+    const timestamp = new Date().toISOString();
+    
+    // Log error for debugging purposes
+    console.error('Fetch board cards function error:', {
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      error_stack: error instanceof Error ? error.stack : undefined,
+      timestamp,
+    });
+
+    // Return failure response for any errors
     return {
-      status_code: 0,
+      status: 'failure',
+      status_code: 500,
       api_delay: 0,
-      message: `Fetch board cards failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: error instanceof Error ? error.message : 'Unknown error occurred during board cards fetching',
+      timestamp,
     };
   }
-}
+};
+
+export default run;

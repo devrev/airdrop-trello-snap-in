@@ -1,0 +1,56 @@
+{
+  "payload": {
+    "connection_data": {
+      "org_id": "<TRELLO_ORGANIZATION_ID>",
+      "org_name": "Test Organization",
+      "key": "key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>",
+      "key_type": "oauth"
+    },
+    "event_context": {
+      "callback_url": "http://localhost:8002/callback",
+      "dev_org": "test-dev-org",
+      "dev_org_id": "test-dev-org-id",
+      "dev_user": "test-user",
+      "dev_user_id": "test-user-id",
+      "external_sync_unit": "test-sync-unit",
+      "external_sync_unit_id": "test-sync-unit-id",
+      "external_sync_unit_name": "Test Sync Unit",
+      "external_system": "trello",
+      "external_system_type": "trello",
+      "import_slug": "test-import",
+      "mode": "INITIAL",
+      "request_id": "test-request-123",
+      "snap_in_slug": "trello-snap-in",
+      "snap_in_version_id": "v1.0.0",
+      "sync_run": "sync-run-123",
+      "sync_run_id": "sync-run-123",
+      "sync_tier": "standard",
+      "sync_unit": "test-sync-unit",
+      "sync_unit_id": "test-sync-unit-id",
+      "uuid": "test-uuid-123",
+      "worker_data_url": "http://localhost:8003/external-worker"
+    },
+    "event_type": "EXTRACTION_EXTERNAL_SYNC_UNITS_START",
+    "event_data": {}
+  },
+  "context": {
+    "dev_oid": "test-dev-org-id",
+    "source_id": "test-source",
+    "snap_in_id": "trello-snap-in",
+    "snap_in_version_id": "v1.0.0",
+    "service_account_id": "test-service-account",
+    "secrets": {
+      "service_account_token": "test-token"
+    }
+  },
+  "execution_metadata": {
+    "request_id": "test-request-123",
+    "function_name": "extraction",
+    "event_type": "EXTRACTION_EXTERNAL_SYNC_UNITS_START",
+    "devrev_endpoint": "http://localhost:8003"
+  },
+  "input_data": {
+    "global_values": {},
+    "event_sources": {}
+  }
+}
