@@ -258,6 +258,10 @@
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' and 'users' data. To push the 'cards' data, it should:
   - If `TheExtractionStateObject["cards"]["completed"]=false`:
+    - While Fetching The Fetched Cards using pagination (The Cards Iteration):
+      - Push The Fetched Cards of the current page to the repository designated for 'cards' data (`:= cards_response`)
+      - Update `TheExtractionStateObject["cards"]["before"]=cards_response[0]["id"]`
+    - Set `TheExtractionStateObject["cards"]["completed"]=true`, `TheExtractionStateObject["cards"]["before"]=""`.
   - Trello Specific: Here's how you should fetch the "created by" information - for each card:
     - Take the ID of the card, and call endpoint "/cards/{id}/actions" (`:= actions_response`) with query params "filter" set to "createCard" and "fields" set to "idMemberCreator".
     - The ID of the user that created the card is in `actions_response[0]["idMemberCreator"]` (empty string if `len(actions_response)=0`).
