@@ -36,13 +36,9 @@
 
 ***Non-Functional Requirements:***
 
-- The Trello Internal Client is a TypeScript service that communicates with The API. These are the rules for The Trello Internal Client:
-  - If we need to create a new request to The API, we must create a new method in The Trello Internal Client.
-  - Communication with The API must be completely abstracted away from The Function. The Function must be able to initialize The Trello Internal Client, call the relevant method from The Trello Internal Client and get the response from The API.
+- {% include "templates/internal_client.plain", external_system_name: "Trello" %}
 
 - The Trello API Key and The Trello OAuth Token are provided in `event["payload"]["connection_data"]["key"]`. Field `event["payload"]["connection_data"]["key"]` has the following format: "key=<The Trello API Key>&token=<The Trello OAuth Token>".
-
-- Managing (overriding) environment variables in The Conformance Tests cannot be done and need not be tested.
 
 ***Test Requirements:***
 
@@ -61,21 +57,16 @@
 
 ***Definitions:***
 
-- The Functions implemented *MUST* also return:
-  - `status_code` - a status code from The API.
-  - `api_delay` - Delay in seconds to wait before retrying the request to The API. If we hit a rate limit, this should be more than 0. If we don't hit a rate limit, just set to 0. How to calculate api_delay:
-    - Read the "Retry-After" header from the response (HTTP date object).
-    - If there's no "Retry-After" header, set api_delay to 5.
-  - `message` - Information about the call the The Function.
-  - Note: Every The Function should handle rate limiting.
+- {% include "templates/data_fetching_return_expectation.plain" %}
 
 ***Non-Functional Requirements:***
 
 - The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API.
+  - Based on the resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml), calculate the `api_delay` for the Functions.
 
 - The Functions being implemented *must not* invoke The Spawn Method nor The Worker Thread.
 
-- Refer to the resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) on what The API returns when we hit rate limit.
+- {% include "templates/should_not_modify_extraction_function.plain" %}
 
 ***Functional Requirements:***
 
@@ -181,38 +172,35 @@
 
 - TheExtractionStateObject is a state passed to The Worker Thread. The following structure for `TheExtractionStateObject` should be used:
   - "users":
-    - "completed" (boolean, required, indicating if the users data has been pushed to the DevRev servers)
+    - "completed" (boolean, required, indicating if the users data has been fully pushed)
   - "cards":
-    - "completed" (boolean, required, indicating if the cards data has been fully pushed to the DevRev servers)
+    - "completed" (boolean, required, indicating if the cards data has been fully pushed)
     - "before" (string, optional, indicating the ID of the what's the next "before" parameter to use when fetching the next page of The Fetched Cards)
     - "modifiedSince" (string, optional, timestamp used for incremental data synchronization to fetch only the cards that have been updated since the last sync)
   - "attachments": 
-    - "completed" (boolean, required, indicating if the attachments data has been pushed to the DevRev servers)
+    - "completed" (boolean, required, indicating if the attachments data has been pushed)
 
 ***Non-Functional Requirements:***
 
-- The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API. The Normalization Function should take the relevant record type from The External Domain Metadata JSON object and map all resources from The API to the corresponding record type in The Normalization Function.
+- The resource [trello-openapi-compact.yaml](trello-openapi-compact.yaml) describes The API.
+  - The Normalization Function should take the relevant record type from The External Domain Metadata JSON object and map all resources from The API to the corresponding record type in The Normalization Function.
 
 {% include "templates/spawn_method_instructions.plain" %}
 
-- The Trello Internal Client should be used to retrieve The Fetched Boards, The Fetched Users, The Fetched Cards and all other data from The API.
+- Requests to The API *MUST NOT* be mocked.
 
-- The Fetched Users and The Fetched Cards *must not* be mocked and must be retrieved from The API.
+- If employing pagination, you should always set the parameter "limit" to 10 (`ThePaginationLimit`) when calling The API.
 
-- The Extraction Function should not stringify error messages. If an error is thrown, it should be logged before throwing it.
-
-- When listing The Fetched Cards, you should always set the parameter "limit" to 100 (`ThePaginationLimit`) when calling The API.
-
-- The Fetched Cards should be retrieved in full with pagination (with "limit" and "before" parameters). This includes making multiple requests to The API.
-  - While True:
-    - Fetch The Fetched Cards (`:= TheFetchedCardsResponse`). Pass the following query parameters to The API:
-      - limit=`ThePaginationLimit`
-      - If `TheExtractionStateObject["cards"]["before"]` exists and is not empty, propagate it as the "before" parameter to the API call.
-    - If `len(TheFetchedCardsResponse) < ThePaginationLimit`:
-      - Set `TheExtractionStateObject["cards"]["completed"]=true`
-      - Break the loop.
+- If employing pagination for <resource_name> during data extraction phase, here's how you should do it:
+  - While `TheExtractionStateObject[<resource_name>]["completed"]=false`:
+    - Fetch <resource_name> from The API (`:= TheExpectedResourceResponse`) with query params:
+      - `limit=ThePaginationLimit`
+      - `before=TheExtractionStateObject[<resource_name>]["before"]` if it exists and is not empty.
+    - If `len(TheExpectedResourceResponse) < ThePaginationLimit`:
+      - `TheExtractionStateObject[<resource_name>]["completed"]=true`
+      - `TheExtractionStateObject[<resource_name>]["before"]=""`
     - Else:
-      - Set `TheExtractionStateObject["cards"]["before"]=TheFetchedCardsResponse[0]["id"]`
+      - `TheExtractionStateObject[<resource_name>]["before"]=TheExpectedResourceResponse[0]["id"]`
 
 - To retrieve "created_date" from The API and convert it in The Normalization Function, keep in mind that the first 8 characters represent a Unix timestamp in hexadecimal format. To retrieve the "created_date" from The API:
   - Take the first 8 characters of the ID
@@ -226,19 +214,19 @@
 - If "event_type" equals "EXTRACTION_EXTERNAL_SYNC_UNITS_START", The Extraction Function should implement the "external sync units extraction" part of the extraction workflow as described in the resource [external-sync-units-extraction.mdx](docs/external-sync-units-extraction.mdx):
   - Retrieve The Fetched Boards
   - Push The Fetched Boards as external sync units using the following mapping from the fields in The Fetched Boards to the fields in The External Sync Units:
-    - "id" from The Fetched Boards should be mapped to "id" in The External Sync Units
-    - "name" from The Fetched Boards should be mapped to "name" in The External Sync Units
-    - "desc" from The Fetched Boards should be mapped to "description" in The External Sync Units
+    - "id" should map to "id".
+    - "name" should map to "name".
+    - "desc" should map to "description".
     - "item_type" should have a fixed value of "cards"
 
   ***Acceptance Tests:***
-  
-  - Test The Extraction Function using the resource [trello_external_sync_unit_check.json](test_data/trello_external_sync_unit_check.json). 
-    - Expect The Callback Server to receive *a single* event with "event_type" "EXTRACTION_EXTERNAL_SYNC_UNITS_DONE".
+
+  - {% include "templates/external_sync_unit_acceptance_test.plain", resource_name: "trello_external_sync_unit_check.json", expected_external_sync_unit_count: 4, expected_external_sync_unit_name: "SaaS connectors" %}
 
   - {% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_EXTERNAL_SYNC_UNITS_START", resource_name: "trello_external_sync_unit_check.json", expected_output_event_type: "EXTRACTION_EXTERNAL_SYNC_UNITS_ERROR" %}
 
-- If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow as described in the resource [metadata-extraction.md](docs/metadata-extraction.mdx). Please note that The External Domain Metadata JSON should not be normalized when pushed to the repository.
+- If "event_type" equals "EXTRACTION_METADATA_START" The Extraction Function should implement the "metadata extraction" part of the extraction workflow as described in the resource [metadata-extraction.md](docs/metadata-extraction.mdx).
+  - Note that The External Domain Metadata JSON should not be normalized when pushed to the repository.
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'users' data. To push the 'users' data, it should:
   - If `TheExtractionStateObject["users"]["completed"]=false`:
@@ -258,6 +246,10 @@
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'cards' and 'users' data. To push the 'cards' data, it should:
   - If `TheExtractionStateObject["cards"]["completed"]=false`:
+    - Fetch The Fetched Cards using pagination (The Cards Iteration). For every page:
+      - Push the Fetched Cards to repository designated for 'cards' data.
+      - Update the "before" parameter for "cards".
+    - Mark the "cards" data as completed.
   - Trello Specific: Here's how you should fetch the "created by" information - for each card:
     - Take the ID of the card, and call endpoint "/cards/{id}/actions" (`:= actions_response`) with query params "filter" set to "createCard" and "fields" set to "idMemberCreator".
     - The ID of the user that created the card is in `actions_response[0]["idMemberCreator"]` (empty string if `len(actions_response)=0`).
@@ -276,12 +268,12 @@
 
 - If "event_type" equals "EXTRACTION_DATA_START" or "EXTRACTION_DATA_CONTINUE" The Extraction Function should push the 'attachments', 'cards' and 'users' data. To push the 'attachments' data, it should:
   - If `TheExtractionStateObject["cards"]["completed"]=false`:
-    - Inside every iteration of the Cards Iteration:
+    - Inside The Cards Iteration. For every page:
       - Extract The Fetched Attachments from The Fetched Cards.
-      - Push The Fetched Attachments to the repository designated for 'attachments' data.
-    - Set `TheExtractionStateObject["attachments"]["completed"]=true`
+      - Push The Fetched Attachments to repository designated for 'attachments' data.
+    - Mark the "attachments" data as completed.
   - Note: Refer to the resource [attachment_normalization.md](docs/attachment_normalization.md) on attachment normalization.
-  - Note: Here's how to normalize "url" field for 'attachments' data:
+  - Trello Specific: Here's how to normalize "url" field for 'attachments' data:
     - if field "url" from The Fetched Attachment object starts with "https://trello.com": construct the "url" field using the following format: f"https://api.trello.com/1/cards/{idCard}/attachments/{idAttachment}/download/{fileName}".
     - else: set the "url" field to the original "url" field.
 
