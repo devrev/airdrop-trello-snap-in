@@ -1,8 +1,8 @@
 Validate the incremental mode with the following flow:
   - Step 1: 
-    - Execute request `curl -X POST "http://localhost:8003/external-worker.update-last-successful-sync/<sync_unit_id>" -H "Content-Type: application/json" -d '{"snap_in_version_id":"test-version-id","extend_state":{"users":{"completed":true},"cards":{"completed":true},"attachments":{"completed":true}}}'`, where `<sync_unit_id>` is `event["payload"]["event_context"]["sync_unit_id"]` in the resource [data_extraction_test.json](test_data/data_extraction_test.json).
+    - Execute request `curl -X POST "http://localhost:8003/external-worker.update-last-successful-sync/<sync_unit_id>" -H "Content-Type: application/json" -d '{"snap_in_version_id":"test-version-id","extend_state":{"users":{"completed":true},"cards":{"completed":true},"attachments":{"completed":true}}}'`, where `<sync_unit_id>` is `event["payload"]["event_context"]["sync_unit_id"]` in the resource [data_extraction_incremental_test.json](test_data/data_extraction_incremental_test.json).
   - Step 2:
-    - Execute request `curl --request PUT --url 'https://api.trello.com/1/cards/688725fd3e26ebcf364bff4a?key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>&name="Card50-<uuid>"' --header 'Accept: application/json'` (replace <TRELLO_API_KEY>, <TRELLO_TOKEN> and <uuid> with the actual values).
+    - Execute request `curl --request PUT --url 'https://api.trello.com/1/cards/68e8bf05096269b58d94f3d9?key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>&name="Card12-<uuid>"' --header 'Accept: application/json'` (replace <TRELLO_API_KEY>, <TRELLO_TOKEN> and <uuid> with the actual values).
     - Expect the request to succeed.
   - Step 3:
     - Invoke The Extraction Function using the resource [data_extraction_incremental_test.json](test_data/data_extraction_incremental_test.json).
