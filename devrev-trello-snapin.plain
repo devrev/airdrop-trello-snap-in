@@ -131,6 +131,17 @@
 
   - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "download_attachment" %}
 
+- Implement The Function "fetch_created_by", which should return the ID of the user that created the card using the endpoint "/cards/{id}/actions".
+  - "id" (required) here refers to the card ID. "id" should be provided in the `event["input_data"]["global_values"]["idCard"]`.
+  - The endpoint should be called with query params "filter" set to "createCard" and "fields" set to "idMemberCreator".
+  - The ID of the user that created the card is in `response[0]["idMemberCreator"]`.
+
+  ***Acceptance Tests:***
+
+  - Test The Function "fetch_created_by" with Card ID "68e8befc8381b0efa25ce1eb". Expect the ID of the user that created the card to be "6752eb529b14a3446b75e69c".
+
+  - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_created_by" %}
+
 
 ## Generate 'initial_domain_mapping.json' and 'external_domain_metadata.json'
 
@@ -251,6 +262,9 @@
       - Push The Fetched Cards of the current page to the repository designated for 'cards' data (`:= cards_response`)
       - Update `TheExtractionStateObject["cards"]["before"]=cards_response[0]["id"]`
     - Set `TheExtractionStateObject["cards"]["completed"]=true`, `TheExtractionStateObject["cards"]["before"]=""`.
+  - Trello Specific: Here's how you should fetch the "created by" information - for each card:
+    - Take the ID of the card, and call endpoint "/cards/{id}/actions" (`:= actions_response`) with query params "filter" set to "createCard" and "fields" set to "idMemberCreator".
+    - The ID of the user that created the card is in `actions_response[0]["idMemberCreator"]` (empty string if `len(actions_response)=0`).
 
   ***Acceptance Tests:***
 
