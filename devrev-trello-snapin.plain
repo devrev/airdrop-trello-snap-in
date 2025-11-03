@@ -49,9 +49,9 @@
   - Replace `TRELLO_TOKEN` placeholder in The Attached JSON Of The Acceptance Test with actual The Trello OAuth Token.
   - Replace `TRELLO_ORGANIZATION_ID` placeholder in The Attached JSON Of The Acceptance Test with actual The Organization ID.
 
-- "external_sync_unit_id" "688725dad59c015ce052eecf" can be used when board ID is required for testing purposes.
+- "external_sync_unit_id" "68e8befbf2f641caa9b1e275" can be used when board ID is required for testing purposes.
 
-- Card ID "688725db990240b77167efef" can be used when card ID is required for testing attachments.
+- Card ID "68e8befc8381b0efa25ce1eb" can be used when card ID is required for testing attachments.
 
 ## Data Fetching
 
@@ -76,7 +76,7 @@
 
   - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "check_authentication" %}
 
-- Implement The Function "fetch_boards" that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards".
+- Implement The Function "fetch_boards" that uses The API to fetch The List of Boards (The Fetched Boards) using the endpoint "/members/{id}/boards", and providing "me" as the value of the "id" parameter.
 
   ***Acceptance Tests:***
 
@@ -84,7 +84,8 @@
 
   - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_boards" %}
 
-- Implement The Function "fetch_organization_members" that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members". The Organization ID should be provided in `event["payload"]["connection_data"]["org_id"]`.
+- Implement The Function "fetch_organization_members" that uses The API to fetch The List of Users of The Organization (The Fetched Users) using the endpoint "/organizations/{id}/members".
+  - The Organization ID should be provided in `event["payload"]["connection_data"]["org_id"]`.
 
   ***Acceptance Tests:***
 
@@ -100,15 +101,14 @@
 
   ***Acceptance Tests:***
 
-  - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and no "before" parameter. Expect the number of The Fetched Cards to be 100.
+  - Test The Function "fetch_board_cards" with Board ID "68e8befbf2f641caa9b1e275", "limit" of 10, and no "before" parameter. Expect the number of The Fetched Cards to be 10.
 
-  - Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and "before" set to "688725fdf26b3c50430cae23". Expect the number of The Fetched Cards to be 50.
+  - Test The Function "fetch_board_cards" with Board ID "68e8befbf2f641caa9b1e275", "limit" of 10, and "before" set to "68e8befe476ee045f3879d92". Expect the number of The Fetched Cards to be 2.
 
   - Test The Function "fetch_board_cards" with the following flow:
-    - Step 1: Test The Function "fetch_board_cards" with Board ID "688725dad59c015ce052eecf", "limit" of 100, and "before" set to "688725dce452b309c904aac4" (:= apiResult)
-    - Step 2: Out of `apiResult`, retrieve the card that has property "id" equal to "688725db990240b77167efef" (:= card)
-    - Step 3: From array `card["attachments"]`, retrieve the attachment object that has property "name" equal to "devrev cover" (:= attachment)
-    - Step 4: Expect `attachment["name"]` to be equal to "devrev cover".
+    - Step 1: Test The Function "fetch_board_cards" with Board ID "68e8befbf2f641caa9b1e275", "limit" of 10, and "before" set to "68e8befe476ee045f3879d92" (`:= apiResult`)
+    - Step 2: Out of `apiResult`, retrieve the card that has property "id" equal to "68e8befc8381b0efa25ce1eb" (`:= card`)
+    - Step 3: From array `card["attachments"]`, retrieve the attachment object that has property "name" equal to "devrev cover" (`:= attachment`). Expect such `attachment` to exist.
 
   - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "fetch_board_cards" %}
 
@@ -118,7 +118,7 @@
 
   ***Acceptance Tests:***
 
-  - Test The Function "download_attachment" with Card ID "688725db990240b77167efef", Attachment ID "68c2be83c413a1889bde83df", and fileName "temporary-file-name.png". Expect the call to The Function to succeed.
+  - Test The Function "download_attachment" with Card ID "68e8befc8381b0efa25ce1eb", Attachment ID "68e8bff4ca7f017ba0524c05", and fileName "temporary-file-name.png". Expect the call to The Function to succeed.
 
   - {% include "templates/test_rate_limiting_during_data_extraction.plain", function_name: "download_attachment" %}
 
@@ -256,9 +256,9 @@
 
   ***Acceptance Tests:***
 
-  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "cards", expected_item_count: 150 %}
+  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "cards", expected_item_count: 12 %}
 
-  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_continue_test.json", artifact_name: "cards", expected_item_count: 150 %}
+  - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_continue_test.json", artifact_name: "cards", expected_item_count: 12 %}
 
   - {% include "templates/test_rate_limiting_during_emitting_events.plain", input_event_name: "EXTRACTION_DATA_START", resource_name: "data_extraction_test.json", expected_output_event_type: "EXTRACTION_DATA_DELAY" %}
 
