@@ -166,8 +166,6 @@
 
 - Resource [data-extraction.md](docs/data-extraction.md) should serve as a generic guide for the implementation of The Extraction Function.
 
-- To list attachments alongside The Fetched Cards, you should use query parameter "attachments" set to "true".
-
 - Refer to the resource [data-extraction-rules-for-emitting-events.md](docs/data-extraction-rules-for-emitting-events.md) for the rules for emitting events for The Extraction Function.
 
 - TheExtractionStateObject is a state passed to The Worker Thread. The following structure for `TheExtractionStateObject` should be used:
@@ -179,6 +177,8 @@
     - "modifiedSince" (string, optional, timestamp used for incremental data synchronization to fetch only the cards that have been updated since the last sync)
   - "attachments": 
     - "completed" (boolean, required, indicating if the attachments data has been pushed)
+
+- Trello Specific: To list attachments alongside The Fetched Cards, you should use query parameter "attachments" set to "true".
 
 ***Non-Functional Requirements:***
 
@@ -202,12 +202,12 @@
     - Else:
       - `TheExtractionStateObject[<resource_name>]["before"]=TheExpectedResourceResponse[0]["id"]`
 
-- To retrieve "created_date" from The API and convert it in The Normalization Function, keep in mind that the first 8 characters represent a Unix timestamp in hexadecimal format. To retrieve the "created_date" from The API:
+- Trello Specific: To retrieve "created_date" from The API and convert it in The Normalization Function, keep in mind that the first 8 characters represent a Unix timestamp in hexadecimal format. To retrieve the "created_date" from The API:
   - Take the first 8 characters of the ID
   - convert to decimal
   - convert to ISO 8601 Extended Format with timezone.
 
-- Fields named "...lastActivity..." in The API have the role of "modified_since" in the DevRev objects.
+- Trello Specific: Fields named "...lastActivity..." in The API have the role of "modified_since" in the DevRev objects.
 
 ***Functional Requirements:***
 
@@ -282,7 +282,7 @@
   - {% include "templates/data_extraction_acceptance_test.plain", resource_name: "data_extraction_test.json", artifact_name: "attachments", expected_item_count: 2 %}
 
 - If "event_type" equals "EXTRACTION_ATTACHMENTS_START" or "EXTRACTION_ATTACHMENTS_CONTINUE" The Extraction Function should implement attachment extraction as described in the resource [attachments-extraction.md](docs/attachments-extraction.md).
-  - Note: Streaming the attachments *MUST* be authenticated using OAuth 1.0a authorization (oauth_consumer_key and oauth_token encoded in the Authorization header).
+  - Trello Specific: Streaming the attachments *MUST* be authenticated using OAuth 1.0a authorization (oauth_consumer_key and oauth_token encoded in the Authorization header).
 
   ***Acceptance Tests:***
 
@@ -298,9 +298,9 @@
     - `TheExtractionStateObject["cards"]["modifiedSince"]=adapter.state.lastSuccessfulSyncStarted` 
     - `TheExtractionStateObject["cards"]["completed"]=false`
     - `TheExtractionStateObject["attachments"]["completed"]=false`
-  - Based on the field "dateLastActivity" (ISO 8601 Extended Format with timezone), you should client-side filter only the The Fetched Cards that have been updated after the time of the last successful sync.
-  - Note: The API *does not* support filtering by "dateLastActivity" server-side.
   - Note: In incremental mode, you should push only the filtered cards and their corresponding attachments to the DevRev servers.
+  - Trello Specific: Based on the field "dateLastActivity" (ISO 8601 Extended Format with timezone), you should client-side filter only the The Fetched Cards that have been updated after the time of the last successful sync.
+  - Trello Specific: The API *does not* support filtering by "dateLastActivity" server-side.
 
   ***Acceptance Tests:***
 
