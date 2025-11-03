@@ -1,124 +1,129 @@
-import { run } from './index';
-import { FunctionInput } from '../../core/types';
-import externalDomainMetadata from '../../external-domain-metadata.json';
+import run from './index';
+import externalDomainMetadata from '../../core/external-domain-metadata.json';
+import {
+  createMockEvent,
+  setupConsoleSpies,
+  clearAllMocks,
+  createInvalidInputTestCases,
+  createInvalidEventTestCases,
+} from './test-setup';
+import {
+  validateSuccessResponseStructure,
+  validateFailureResponseStructure,
+  createMetadataValidationScenarios,
+  createErrorHandlingScenarios,
+} from './test-helpers';
 
 describe('get_external_domain_metadata function', () => {
-  const mockEvent: FunctionInput = {
-    payload: {},
-    context: {
-      dev_oid: 'test-dev-oid',
-      source_id: 'test-source-id',
-      snap_in_id: 'test-snap-in-id',
-      snap_in_version_id: 'test-snap-in-version-id',
-      service_account_id: 'test-service-account-id',
-      secrets: {
-        service_account_token: 'test-token'
-      }
-    },
-    execution_metadata: {
-      request_id: 'test-request-id',
-      function_name: 'get_external_domain_metadata',
-      event_type: 'test-event-type',
-      devrev_endpoint: 'https://api.devrev.ai'
-    },
-    input_data: {
-      global_values: {},
-      event_sources: {}
-    }
-  };
+  beforeEach(() => {
+    clearAllMocks();
+    setupConsoleSpies();
+  });
 
-  it('should return external domain metadata when given valid events', async () => {
-    const result = await run([mockEvent]);
-    
-    expect(result).toEqual({
-      external_domain_metadata: externalDomainMetadata,
-      success: true,
-      message: 'External domain metadata retrieved successfully'
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should return success response with external domain metadata', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
+
+    const result = await run(events);
+
+    validateSuccessResponseStructure(result);
+  });
+
+  describe('metadata validation scenarios', () => {
+    const scenarios = createMetadataValidationScenarios();
+
+    Object.entries(scenarios).forEach(([key, scenario]) => {
+      it(scenario.description, async () => {
+        const mockEvent = createMockEvent();
+        const events = [mockEvent];
+
+        const result = await run(events);
+
+        expect(result.status).toBe('success');
+        scenario.validator(result.metadata);
+      });
     });
   });
 
-  it('should return the correct structure for users record type', async () => {
-    const result = await run([mockEvent]);
+  describe('input validation', () => {
+    const testCases = createInvalidInputTestCases();
     
-    expect(result.external_domain_metadata.record_types.users).toBeDefined();
-    expect(result.external_domain_metadata.record_types.users.name).toBe('Users');
-    expect(result.external_domain_metadata.record_types.users.fields.full_name).toEqual({
-      name: 'Full Name',
-      type: 'text',
-      is_required: true
-    });
-    expect(result.external_domain_metadata.record_types.users.fields.username).toEqual({
-      name: 'Username',
-      type: 'text',
-      is_required: true
+    testCases.forEach(({ input, expectedMessage }) => {
+      it(`should handle invalid input: ${JSON.stringify(input)}`, async () => {
+        const result = await run(input as any);
+        validateFailureResponseStructure(result, expectedMessage);
+      });
     });
   });
 
-  it('should return the correct structure for cards record type', async () => {
-    const result = await run([mockEvent]);
+  describe('event validation', () => {
+    const testCases = createInvalidEventTestCases();
     
-    expect(result.external_domain_metadata.record_types.cards).toBeDefined();
-    expect(result.external_domain_metadata.record_types.cards.name).toBe('Cards');
-    expect(result.external_domain_metadata.record_types.cards.fields.name).toEqual({
-      name: 'Name',
-      type: 'text',
-      is_required: true
+    testCases.forEach(({ name, eventModifier, expectedMessage }) => {
+      it(`should handle ${name}`, async () => {
+        const mockEvent = createMockEvent();
+        const invalidEvent = eventModifier(mockEvent);
+        const result = await run([invalidEvent as any]);
+        validateFailureResponseStructure(result, expectedMessage);
+      });
     });
-    expect(result.external_domain_metadata.record_types.cards.fields.url).toEqual({
-      name: 'URL',
-      type: 'text',
-      is_required: true
+  });
+
+  describe('error handling', () => {
+    const scenarios = createErrorHandlingScenarios();
+
+    it(scenarios.validationError.description, async () => {
+      const consoleSpy = jest.spyOn(console, 'error');
+      
+      const result = await run([]);
+
+      expect(consoleSpy).toHaveBeenCalledWith('Get external domain metadata function error:', scenarios.validationError.expectedConsoleLog);
+      validateFailureResponseStructure(result, scenarios.validationError.expectedMessage);
     });
-    expect(result.external_domain_metadata.record_types.cards.fields.description).toEqual({
-      name: 'Description',
-      type: 'rich_text',
-      is_required: true
-    });
-    expect(result.external_domain_metadata.record_types.cards.fields.id_members).toEqual({
-      name: 'ID Members',
-      type: 'reference',
-      is_required: true,
-      collection: {
-        max_length: 50
-      },
-      reference: {
-        refers_to: {
-          '#record:users': {}
+
+    it(scenarios.unknownError.description, async () => {
+      const consoleSpy = jest.spyOn(console, 'error');
+      
+      // Create a mock that will cause an unknown error
+      const mockEvent = createMockEvent();
+      Object.defineProperty(mockEvent, 'context', {
+        get: () => {
+          throw 'string error'; // Non-Error object
         }
-      }
+      });
+
+      const result = await run([mockEvent]);
+
+      validateFailureResponseStructure(result, scenarios.unknownError.expectedMessage);
+      expect(consoleSpy).toHaveBeenCalledWith('Get external domain metadata function error:', scenarios.unknownError.expectedConsoleLog);
     });
   });
 
-  it('should have correct schema version', async () => {
-    const result = await run([mockEvent]);
-    
-    expect(result.external_domain_metadata.schema_version).toBe('v0.2.0');
+  it('should process only the first event when multiple events are provided', async () => {
+    const mockEvent1 = createMockEvent();
+    const mockEvent2 = createMockEvent();
+    mockEvent2.context.dev_oid = 'different-dev-oid';
+
+    const result = await run([mockEvent1, mockEvent2]);
+
+    expect(result.status).toBe('success');
+    expect(result.message).toBe('Successfully retrieved external domain metadata');
+    expect(result.metadata).toEqual(externalDomainMetadata);
   });
 
-  it('should have both users and cards record types', async () => {
-    const result = await run([mockEvent]);
-    
-    expect(Object.keys(result.external_domain_metadata.record_types)).toEqual(['users', 'cards']);
-  });
+  it('should return consistent metadata across multiple calls', async () => {
+    const mockEvent = createMockEvent();
+    const events = [mockEvent];
 
-  it('should return an error when no events are provided', async () => {
-    const result = await run([]);
-    
-    expect(result).toEqual({
-      external_domain_metadata: {},
-      success: false,
-      message: 'Get external domain metadata failed: No events provided'
-    });
-  });
+    const result1 = await run(events);
+    const result2 = await run(events);
 
-  it('should handle undefined events array', async () => {
-    // @ts-ignore - Testing invalid input
-    const result = await run(undefined);
-    
-    expect(result).toEqual({
-      external_domain_metadata: {},
-      success: false,
-      message: 'Get external domain metadata failed: No events provided'
-    });
+    expect(result1.metadata).toEqual(result2.metadata);
+    expect(result1.status).toBe(result2.status);
+    expect(result1.message).toBe(result2.message);
   });
 });

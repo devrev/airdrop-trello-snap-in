@@ -1,214 +1,201 @@
-import { run } from './index';
-import { TrelloClient } from '../../core/trello-client';
-import { 
-  mockAttachmentData, 
-  createMockEvent, 
-  setupTrelloClientMock, 
-  setupTrelloClientParseError 
-} from './test-helpers';
-
-// Mock the TrelloClient
+// Mock the TrelloClient module before importing
 jest.mock('../../core/trello-client');
 
+import run from './index';
+import { TrelloClient } from '../../core/trello-client';
+import {
+  setupMockTrelloClient,
+  createMockEvent,
+  setupConsoleSpies,
+  clearAllMocks,
+  expectSuccessResponse,
+  expectFailureResponse,
+} from './test-setup';
+import {
+  successfulDownloadResponse,
+  authFailureResponse,
+  rateLimitResponse,
+  notFoundResponse,
+  createInvalidInputTestCases,
+  createInvalidEventTestCases,
+} from './test-data';
+import {
+  createDownloadTestScenarios,
+  validateSuccessResponseStructure,
+  validateFailureResponseStructure,
+} from './test-helpers';
+
 describe('download_attachment function', () => {
+  let mockTrelloClientInstance: jest.Mocked<TrelloClient>;
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    clearAllMocks();
+    setupConsoleSpies();
+    mockTrelloClientInstance = setupMockTrelloClient();
   });
 
-  it('should return attachment data when API call succeeds', async () => {
-    const mockDownloadAttachment = setupTrelloClientMock({
-      data: mockAttachmentData,
-      status_code: 200,
-      api_delay: 0,
-      message: 'Successfully downloaded attachment from Trello API',
-    });
-
-    const result = await run([createMockEvent()]);
-
-    expect(result).toEqual({
-      attachment_data: mockAttachmentData,
-      status_code: 200,
-      api_delay: 0,
-      message: 'Successfully downloaded attachment from Trello API',
-    });
-    expect(mockDownloadAttachment).toHaveBeenCalledWith('test-card-id', 'test-attachment-id', 'test-file.pdf');
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
-  it('should handle API call failure with 401', async () => {
-    setupTrelloClientMock({
-      status_code: 401,
-      api_delay: 0,
-      message: 'Authentication failed. Invalid API key or token',
-    });
+  it('should return success response with attachment data', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockResolvedValue(successfulDownloadResponse);
 
-    const result = await run([createMockEvent()]);
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
 
-    expect(result).toEqual({
-      status_code: 401,
-      api_delay: 0,
-      message: 'Authentication failed. Invalid API key or token',
-    });
-    expect(result.attachment_data).toBeUndefined();
-  });
-
-  it('should handle API call failure with 404', async () => {
-    setupTrelloClientMock({
-      status_code: 404,
-      api_delay: 0,
-      message: 'Resource not found',
-    });
-
-    const result = await run([createMockEvent()]);
-
-    expect(result).toEqual({
-      status_code: 404,
-      api_delay: 0,
-      message: 'Resource not found',
+    expectSuccessResponse(result, {
+      file_data: 'base64-encoded-file-content',
+      file_name: 'test-file.pdf',
+      content_type: 'application/pdf',
     });
   });
 
-  it('should handle rate limiting with proper api_delay', async () => {
-    setupTrelloClientMock({
-      status_code: 429,
-      api_delay: 30,
-      message: 'Rate limit exceeded. Retry after 30 seconds',
+  it('should return failure response for invalid authentication', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockResolvedValue(authFailureResponse);
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 401, 'Authentication failed - invalid API key or token');
+  });
+
+  it('should handle rate limiting correctly', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockResolvedValue(rateLimitResponse);
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 429, 'Rate limit exceeded - retry after 60 seconds', 60);
+  });
+
+  it('should handle attachment not found error', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockResolvedValue(notFoundResponse);
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 404, 'Card, attachment, or file not found');
+  });
+
+  describe('download response scenarios', () => {
+    const scenarios = createDownloadTestScenarios();
+
+    it(scenarios.serverError.description, async () => {
+      mockTrelloClientInstance.downloadAttachment.mockResolvedValue(scenarios.serverError.mockResponse);
+
+      const mockEvent = createMockEvent();
+      const result = await run([mockEvent]);
+
+      validateFailureResponseStructure(result, 500, 'Trello API server error');
     });
 
-    const result = await run([createMockEvent()]);
+    it(scenarios.successWithoutData.description, async () => {
+      mockTrelloClientInstance.downloadAttachment.mockResolvedValue(scenarios.successWithoutData.mockResponse);
 
-    expect(result).toEqual({
-      status_code: 429,
-      api_delay: 30,
-      message: 'Rate limit exceeded. Retry after 30 seconds',
+      const mockEvent = createMockEvent();
+      const result = await run([mockEvent]);
+
+      validateFailureResponseStructure(result, 200, 'Success but no data');
     });
   });
 
-  it('should return error when no events are provided', async () => {
+  describe('input validation', () => {
+    const testCases = createInvalidInputTestCases();
+    
+    testCases.forEach(({ input, expectedMessage }) => {
+      it(`should handle invalid input: ${JSON.stringify(input)}`, async () => {
+        const result = await run(input as any);
+        expectFailureResponse(result, 500, expectedMessage);
+      });
+    });
+  });
+
+  describe('event validation', () => {
+    const testCases = createInvalidEventTestCases();
+    
+    testCases.forEach(({ name, eventModifier, expectedMessage }) => {
+      it(`should handle ${name}`, async () => {
+        const mockEvent = createMockEvent();
+        const invalidEvent = eventModifier(mockEvent);
+        const result = await run([invalidEvent as any]);
+        expectFailureResponse(result, 500, expectedMessage);
+      });
+    });
+  });
+
+  it('should handle TrelloClient creation errors', async () => {
+    jest.spyOn(TrelloClient, 'fromConnectionData').mockImplementation(() => {
+      throw new Error('Invalid connection data format');
+    });
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 500, 'Invalid connection data format');
+  });
+
+  it('should handle API call errors', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockRejectedValue(new Error('Network error'));
+
+    const mockEvent = createMockEvent();
+    const result = await run([mockEvent]);
+
+    expectFailureResponse(result, 500, 'Network error');
+  });
+
+  it('should process only the first event when multiple events are provided', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockResolvedValue(successfulDownloadResponse);
+
+    const mockEvent1 = createMockEvent('key=api-key-1&token=token-1', 'card-1', 'att-1', 'file1.pdf');
+    const mockEvent2 = createMockEvent('key=api-key-2&token=token-2', 'card-2', 'att-2', 'file2.pdf');
+
+    const result = await run([mockEvent1, mockEvent2]);
+
+    expect(mockTrelloClientInstance.downloadAttachment).toHaveBeenCalledTimes(1);
+    expect(mockTrelloClientInstance.downloadAttachment).toHaveBeenCalledWith('card-1', 'att-1', 'file1.pdf');
+    expectSuccessResponse(result);
+  });
+
+  it('should log error details when errors occur', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
+    
     const result = await run([]);
 
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: No events provided',
+    expect(consoleSpy).toHaveBeenCalledWith('Download attachment function error:', {
+      error_message: 'Invalid input: events array cannot be empty',
+      error_stack: expect.any(String),
+      timestamp: expect.any(String),
     });
   });
 
-  it('should return error when connection data is missing', async () => {
-    const eventWithoutConnectionData = {
-      ...createMockEvent(),
-      payload: {}
-    };
-
-    const result = await run([eventWithoutConnectionData]);
-
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: Missing connection data',
-    });
-  });
-
-  it('should return error when idCard parameter is missing', async () => {
-    const eventWithoutIdCard = createMockEvent({
-      input_data: {
-        global_values: {
-          idAttachment: 'test-attachment-id',
-          fileName: 'test-file.pdf'
-        }
+  it('should handle unknown errors gracefully', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
+    
+    const mockEvent = createMockEvent();
+    Object.defineProperty(mockEvent, 'payload', {
+      get: () => {
+        throw 'string error'; // Non-Error object
       }
     });
 
-    const result = await run([eventWithoutIdCard]);
+    const result = await run([mockEvent]);
 
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: Missing required idCard parameter',
+    expectFailureResponse(result, 500, 'Unknown error occurred during attachment download');
+    expect(consoleSpy).toHaveBeenCalledWith('Download attachment function error:', {
+      error_message: 'Unknown error',
+      error_stack: undefined,
+      timestamp: expect.any(String),
     });
   });
 
-  it('should return error when idAttachment parameter is missing', async () => {
-    const eventWithoutIdAttachment = createMockEvent({
-      input_data: {
-        global_values: {
-          idCard: 'test-card-id',
-          fileName: 'test-file.pdf'
-        }
-      }
-    });
+  it('should call downloadAttachment with correct parameters', async () => {
+    mockTrelloClientInstance.downloadAttachment.mockResolvedValue(successfulDownloadResponse);
 
-    const result = await run([eventWithoutIdAttachment]);
+    const mockEvent = createMockEvent('key=test&token=test', 'card-123', 'att-456', 'document.pdf');
+    
+    await run([mockEvent]);
 
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: Missing required idAttachment parameter',
-    });
-  });
-
-  it('should return error when fileName parameter is missing', async () => {
-    const eventWithoutFileName = createMockEvent({
-      input_data: {
-        global_values: {
-          idCard: 'test-card-id',
-          idAttachment: 'test-attachment-id'
-        }
-      }
-    });
-
-    const result = await run([eventWithoutFileName]);
-
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: Missing required fileName parameter',
-    });
-  });
-
-  it('should return error when credentials parsing fails', async () => {
-    setupTrelloClientParseError('Invalid connection data: missing API key or token');
-
-    const eventWithInvalidKey = createMockEvent({
-      payload: {
-        connection_data: {
-          key: 'invalid-format'
-        }
-      }
-    });
-
-    const result = await run([eventWithInvalidKey]);
-
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: Invalid connection data: missing API key or token',
-    });
-  });
-
-  it('should handle undefined events array', async () => {
-    // @ts-ignore - Testing invalid input
-    const result = await run(undefined);
-
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Download attachment failed: No events provided',
-    });
-  });
-
-  it('should handle network errors', async () => {
-    setupTrelloClientMock({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Network error: Unable to reach Trello API',
-    });
-
-    const result = await run([createMockEvent()]);
-
-    expect(result).toEqual({
-      status_code: 0,
-      api_delay: 0,
-      message: 'Network error: Unable to reach Trello API',
-    });
+    expect(mockTrelloClientInstance.downloadAttachment).toHaveBeenCalledWith('card-123', 'att-456', 'document.pdf');
   });
 });

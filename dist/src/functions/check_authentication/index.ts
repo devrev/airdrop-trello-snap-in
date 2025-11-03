@@ -1,78 +1,105 @@
 import { FunctionInput } from '../../core/types';
 import { TrelloClient } from '../../core/trello-client';
 
-export interface AuthenticationCheckResult {
-  authenticated: boolean;
+export interface AuthenticationCheckResponse {
+  status: 'success' | 'failure';
   status_code: number;
   api_delay: number;
   message: string;
+  timestamp: string;
+  member_info?: {
+    id: string;
+    username?: string;
+    full_name?: string;
+  };
 }
 
 /**
- * Function that checks if authentication with Trello API works.
- * 
- * @param events Array of function input events
- * @returns Object indicating authentication status
+ * Authentication check function that verifies if authentication with Trello API works.
+ * Makes a request to /members/me endpoint to test authentication.
  */
-export async function run(events: FunctionInput[]): Promise<AuthenticationCheckResult> {
+const run = async (events: FunctionInput[]): Promise<AuthenticationCheckResponse> => {
   try {
-    // Process only the first event
-    if (!events || events.length === 0) {
-      return {
-        authenticated: false,
-        status_code: 0,
-        api_delay: 0,
-        message: 'Authentication check failed: No events provided',
-      };
+    // Validate input
+    if (!events || !Array.isArray(events)) {
+      throw new Error('Invalid input: events must be an array');
     }
 
+    if (events.length === 0) {
+      throw new Error('Invalid input: events array cannot be empty');
+    }
+
+    // Process only the first event as per requirements
     const event = events[0];
-    
-    // Extract connection data
-    const connectionData = event.payload.connection_data;
-    if (!connectionData || !connectionData.key) {
-      return {
-        authenticated: false,
-        status_code: 0,
-        api_delay: 0,
-        message: 'Authentication check failed: Missing connection data',
-      };
+
+    // Validate event structure
+    if (!event) {
+      throw new Error('Invalid event: event cannot be null or undefined');
     }
 
-    // Parse API credentials
-    let credentials;
-    try {
-      credentials = TrelloClient.parseCredentials(connectionData.key);
-    } catch (error) {
-      return {
-        authenticated: false,
-        status_code: 0,
-        api_delay: 0,
-        message: `Authentication check failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
+    if (!event.payload) {
+      throw new Error('Invalid event: missing payload');
     }
 
-    // Initialize Trello client and test authentication
-    const trelloClient = new TrelloClient({
-      apiKey: credentials.apiKey,
-      token: credentials.token,
-    });
+    if (!event.payload.connection_data) {
+      throw new Error('Invalid event: missing connection_data in payload');
+    }
 
+    if (!event.payload.connection_data.key) {
+      throw new Error('Invalid event: missing key in connection_data');
+    }
+
+    // Create Trello client from connection data
+    const trelloClient = TrelloClient.fromConnectionData(event.payload.connection_data.key);
+
+    // Test authentication by getting current member info
     const response = await trelloClient.getCurrentMember();
 
-    return {
-      authenticated: response.status_code === 200,
-      status_code: response.status_code,
-      api_delay: response.api_delay,
-      message: response.message,
-    };
+    const timestamp = new Date().toISOString();
+
+    if (response.status_code === 200 && response.data) {
+      // Authentication successful
+      return {
+        status: 'success',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: 'Authentication successful - API key and token are valid',
+        timestamp,
+        member_info: {
+          id: response.data.id,
+          username: response.data.username,
+          full_name: response.data.fullName,
+        },
+      };
+    } else {
+      // Authentication failed
+      return {
+        status: 'failure',
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+        timestamp,
+      };
+    }
   } catch (error) {
-    console.error('Error in check_authentication function:', error);
+    const timestamp = new Date().toISOString();
+    
+    // Log error for debugging purposes
+    console.error('Authentication check function error:', {
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      error_stack: error instanceof Error ? error.stack : undefined,
+      timestamp,
+    });
+
+    // Return failure response for any errors
     return {
-      authenticated: false,
-      status_code: 0,
+      status: 'failure',
+      status_code: 500,
       api_delay: 0,
-      message: `Authentication check failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: error instanceof Error ? error.message : 'Unknown error occurred during authentication check',
+      timestamp,
     };
   }
-}
+};
+
+export default run;

@@ -1,0 +1,55 @@
+{
+  "execution_metadata": {
+    "function_name": "data_extraction_check",
+    "devrev_endpoint": "http://localhost:8003",
+    "request_id": "test-request-acceptance",
+    "event_type": "airdrop_event"
+  },
+  "payload": {
+    "event_type": "EXTRACTION_DATA_START",
+    "event_context": {
+      "callback_url": "http://localhost:8002/callback",
+      "dev_org": "test-dev-org",
+      "dev_org_id": "test-dev-org",
+      "dev_user": "test-user",
+      "dev_user_id": "test-user",
+      "external_sync_unit_id": "test-external-sync-unit",
+      "external_sync_unit": "test-external-sync-unit",
+      "external_sync_unit_name": "Test External Sync Unit",
+      "external_system": "test-system",
+      "external_system_type": "test",
+      "import_slug": "test-import",
+      "mode": "INITIAL",
+      "request_id": "test-request-acceptance",
+      "snap_in_slug": "test-snap-in",
+      "snap_in_version_id": "test-version",
+      "sync_run": "test-sync-run",
+      "sync_run_id": "test-sync-run",
+      "sync_tier": "test-tier",
+      "sync_unit": "test-sync-unit",
+      "sync_unit_id": "test-sync-unit",
+      "uuid": "test-uuid-acceptance",
+      "worker_data_url": "http://localhost:8003/external-worker"
+    },
+    "connection_data": {
+      "org_id": "test-org-123",
+      "org_name": "Test Organization",
+      "key": "test-api-key",
+      "key_type": "api_key"
+    }
+  },
+  "context": {
+    "dev_oid": "test-dev-org",
+    "source_id": "test-source",
+    "snap_in_id": "test-snap-in",
+    "snap_in_version_id": "test-version",
+    "service_account_id": "test-service-account",
+    "secrets": {
+      "service_account_token": "test-token"
+    }
+  },
+  "input_data": {
+    "global_values": {},
+    "event_sources": {}
+  }
+}

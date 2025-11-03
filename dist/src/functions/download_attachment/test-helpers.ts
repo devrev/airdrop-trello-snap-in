@@ -1,66 +1,61 @@
-import { FunctionInput } from '../../core/types';
-import { TrelloClient } from '../../core/trello-client';
+import { DownloadAttachmentResponse } from './index';
+import { TrelloApiResponse } from '../../core/trello-client';
 
-export const mockAttachmentData = new ArrayBuffer(1024); // Mock binary data
-
-export const createMockEvent = (overrides: any = {}): FunctionInput => ({
-  payload: {
-    connection_data: {
-      org_id: 'test-org-id',
-      org_name: 'test-org-name',
-      key: 'key=test-api-key&token=test-token',
-      key_type: 'test-key-type'
+/**
+ * Creates test scenarios for various download configurations
+ */
+export const createDownloadTestScenarios = () => {
+  return {
+    serverError: {
+      description: 'should handle server errors correctly',
+      mockResponse: {
+        status_code: 500,
+        api_delay: 0,
+        message: 'Trello API server error',
+      } as TrelloApiResponse,
     },
-    ...overrides.payload
-  },
-  context: {
-    dev_oid: 'test-dev-oid',
-    source_id: 'test-source-id',
-    snap_in_id: 'test-snap-in-id',
-    snap_in_version_id: 'test-snap-in-version-id',
-    service_account_id: 'test-service-account-id',
-    secrets: {
-      service_account_token: 'test-token'
+    successWithoutData: {
+      description: 'should handle successful response without attachment data',
+      mockResponse: {
+        status_code: 200,
+        api_delay: 0,
+        message: 'Success but no data',
+      } as TrelloApiResponse,
     },
-    ...overrides.context
-  },
-  execution_metadata: {
-    request_id: 'test-request-id',
-    function_name: 'download_attachment',
-    event_type: 'test-event-type',
-    devrev_endpoint: 'https://api.devrev.ai',
-    ...overrides.execution_metadata
-  },
-  input_data: {
-    global_values: {
-      idCard: 'test-card-id',
-      idAttachment: 'test-attachment-id',
-      fileName: 'test-file.pdf'
-    },
-    event_sources: {},
-    ...overrides.input_data
-  }
-});
-
-export const setupTrelloClientMock = (mockResponse: any) => {
-  // Mock the static parseCredentials method
-  jest.spyOn(TrelloClient, 'parseCredentials').mockReturnValue({
-    apiKey: 'test-api-key',
-    token: 'test-token',
-  });
-
-  const mockDownloadAttachment = jest.fn().mockResolvedValue(mockResponse);
-
-  // Mock the constructor
-  (TrelloClient as jest.MockedClass<typeof TrelloClient>).mockImplementation(() => ({
-    downloadAttachment: mockDownloadAttachment,
-  } as any));
-
-  return mockDownloadAttachment;
+  };
 };
 
-export const setupTrelloClientParseError = (errorMessage: string) => {
-  jest.spyOn(TrelloClient, 'parseCredentials').mockImplementation(() => {
-    throw new Error(errorMessage);
-  });
+/**
+ * Validates that a response matches the expected success pattern
+ */
+export const validateSuccessResponseStructure = (result: DownloadAttachmentResponse) => {
+  expect(result.status).toBe('success');
+  expect(result.status_code).toBe(200);
+  expect(result.api_delay).toBe(0);
+  expect(result.message).toBe('Successfully downloaded attachment');
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.file_data).toBeDefined();
+  expect(result.file_name).toBeDefined();
+  expect(result.content_type).toBeDefined();
+};
+
+/**
+ * Validates that a response matches the expected failure pattern
+ */
+export const validateFailureResponseStructure = (
+  result: DownloadAttachmentResponse,
+  expectedStatusCode: number,
+  expectedMessage: string,
+  expectedApiDelay: number = 0
+) => {
+  expect(result.status).toBe('failure');
+  expect(result.status_code).toBe(expectedStatusCode);
+  expect(result.api_delay).toBe(expectedApiDelay);
+  expect(result.message).toBe(expectedMessage);
+  expect(result.timestamp).toBeDefined();
+  expect(new Date(result.timestamp)).toBeInstanceOf(Date);
+  expect(result.file_data).toBeUndefined();
+  expect(result.file_name).toBeUndefined();
+  expect(result.content_type).toBeUndefined();
 };
