@@ -1,14 +1,16 @@
 Validate the incremental mode with the following flow:
   - Step 1: 
-    - Execute request `curl -X POST "http://localhost:8003/external-worker.update-last-successful-sync/<sync_unit_id>" -H "Content-Type: application/json" -d '{"snap_in_version_id":"test-version-id","extend_state":{"users":{"completed":true},"cards":{"completed":true},"attachments":{"completed":true}}}'`, where `<sync_unit_id>` is `event["payload"]["event_context"]["sync_unit_id"]` in the resource [data_extraction_incremental_test.json](test_data/data_extraction_incremental_test.json).
+    - Execute request `curl -X POST "http://localhost:8003/external-worker.update-last-successful-sync/<sync_unit_id>" -H "Content-Type: application/json" -d '{"snap_in_version_id":"test-version-id","extend_state": <:CompleteExtractionStateObject:>}'`
+      - `<sync_unit_id>` is `event["payload"]["event_context"]["sync_unit_id"]` in the resource [data_extraction_incremental_test.json](test_data/data_extraction_incremental_test.json).
+      - `<:CompleteExtractionStateObject:>` is complete state of :TrelloExtractionStateObject: in JSON format.
   - Step 2:
-    - Execute request `curl --request PUT --url 'https://api.trello.com/1/cards/68e8befc8381b0efa25ce1eb?key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>&name="Card12-<uuid>"' --header 'Accept: application/json'` (replace <TRELLO_API_KEY>, <TRELLO_TOKEN> and <uuid> with the actual values).
+    - Execute request `curl --request PUT --url 'https://api.trello.com/1/cards/68e8befc8381b0efa25ce1eb?key=<TRELLO_API_KEY>&token=<TRELLO_TOKEN>&name="Card1-<uuid>"' --header 'Accept: application/json'` (replace <TRELLO_API_KEY>, <TRELLO_TOKEN> and <uuid> with the actual values).
     - Expect the request to succeed.
   - Step 3:
-    - Invoke The Extraction Function using the resource [data_extraction_incremental_test.json](test_data/data_extraction_incremental_test.json).
-    - Expect The Callback Server to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE".
+    - Invoke :ExtractionFunction: using the resource [data_extraction_incremental_test.json](test_data/data_extraction_incremental_test.json).
+    - Expect :TestCallbackServer: to receive from DevRev a **single** event with "event_type" that equals "EXTRACTION_DATA_DONE".
     - Let `artifact_array = <event_from_callback_server>["event_data"]["artifacts"]` (array of objects). 
     - Expect `artifact_array` to not be empty array.
     - Out of `artifact_array`, expect one of the elements to have "item_type" equal to "cards" (`:= cards_artifact`). Expect `cards_artifact["item_count"]=1`.
     - Out of `artifact_array`, expect one of the elements to have "item_type" equal to "attachments" (`:= attachments_artifact`). Expect `attachments_artifact["item_count"]=2`.
-    - Expect that there is no element in `artifact_array` with "item_type" equal to "users". If there is, this indicates that the users data was pushed to the DevRev servers, which is wrong.
+    - Expect that there is no element in `artifact_array` with "item_type" equal to "users". If there is, this indicates that the users data was pushed to :DevRevServers:, which is wrong.

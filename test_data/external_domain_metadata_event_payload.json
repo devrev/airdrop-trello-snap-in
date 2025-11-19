@@ -22,7 +22,7 @@
       },
       "execution_metadata": {
         "request_id": "63c6f1c6-eabe-452f-a694-7f23a8f5c3cc",
-        "function_name": "get_external_domain_metadata",
+        "function_name": "extraction",
         "event_type": "test-event",
         "devrev_endpoint": "http://localhost:8003"
       },
