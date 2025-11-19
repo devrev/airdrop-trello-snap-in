@@ -1,0 +1,246 @@
+{
+  "schema_version": "v0.2.0",
+  "record_types": {
+    "users": {
+      "name": "Users",
+      "description": "Users from Trello mapped to DevRev users",
+      "fields": {
+        "id": {
+          "type": "text",
+          "name": "ID",
+          "description": "Unique identifier for the user",
+          "is_required": true,
+          "is_identifier": true,
+          "is_read_only": true
+        },
+        "full_name": {
+          "type": "text",
+          "name": "Full Name",
+          "description": "Full name of the user"
+        },
+        "username": {
+          "type": "text",
+          "name": "Username",
+          "description": "Username of the user"
+        },
+        "email": {
+          "type": "text",
+          "name": "Email",
+          "description": "Email address of the user"
+        }
+      }
+    },
+    "labels": {
+      "name": "Labels",
+      "description": "Labels from Trello mapped to DevRev tags",
+      "fields": {
+        "id": {
+          "type": "text",
+          "name": "ID",
+          "description": "Unique identifier for the label",
+          "is_required": true,
+          "is_identifier": true,
+          "is_read_only": true
+        },
+        "name": {
+          "type": "text",
+          "name": "Name",
+          "description": "Name of the label (label-<color> if no name)"
+        },
+        "color": {
+          "type": "text",
+          "name": "Color",
+          "description": "Color of the label as hex color code"
+        },
+        "description": {
+          "type": "rich_text",
+          "name": "Description",
+          "description": "Description of the label (same as name)"
+        }
+      }
+    },
+    "cards": {
+      "name": "Cards",
+      "description": "Cards from Trello mapped to DevRev work items",
+      "fields": {
+        "id": {
+          "type": "text",
+          "name": "ID",
+          "description": "Unique identifier for the card",
+          "is_required": true,
+          "is_identifier": true,
+          "is_read_only": true
+        },
+        "title": {
+          "type": "text",
+          "name": "Title",
+          "description": "Name/title of the card"
+        },
+        "body": {
+          "type": "rich_text",
+          "name": "Body",
+          "description": "Description of the card in Markdown format"
+        },
+        "target_close_date": {
+          "type": "timestamp",
+          "name": "Target Close Date",
+          "description": "Due date for the card"
+        },
+        "stage": {
+          "type": "enum",
+          "name": "Stage",
+          "description": "Stage of the card based on list mapping",
+          "enum": {
+            "values": [
+              {"key": "backlog", "name": "Backlog"},
+              {"key": "in_development", "name": "In Development"},
+              {"key": "in_review", "name": "In Review"},
+              {"key": "completed", "name": "Completed"}
+            ]
+          }
+        },
+        "item_url_field": {
+          "type": "text",
+          "name": "Item URL",
+          "description": "URL to the card in Trello"
+        },
+        "owned_by_ids": {
+          "type": "reference",
+          "name": "Owned By IDs",
+          "description": "Array of member IDs assigned to the card",
+          "reference": {
+            "refers_to": {
+              "#record:users": {}
+            }
+          },
+          "collection": {}
+        },
+        "tags": {
+          "type": "reference",
+          "name": "Tags",
+          "description": "Array of label IDs associated with the card",
+          "reference": {
+            "refers_to": {
+              "#record:labels": {}
+            }
+          },
+          "collection": {}
+        },
+        "created_by_id": {
+          "type": "reference",
+          "name": "Created By ID",
+          "description": "ID of the member who created the card",
+          "reference": {
+            "refers_to": {
+              "#record:users": {}
+            }
+          }
+        },
+        "trello_due_complete": {
+          "type": "bool",
+          "name": "Trello Due Complete",
+          "description": "Whether the due date has been marked as complete"
+        },
+        "trello_position": {
+          "type": "float",
+          "name": "Trello Position",
+          "description": "Position of the card in the list"
+        },
+        "state": {
+          "type": "bool",
+          "name": "State",
+          "description": "Whether the card is closed (true) or open (false)"
+        },
+        "modified_date": {
+          "type": "timestamp",
+          "name": "Modified Date",
+          "description": "Date when the card was last modified"
+        },
+        "trello_subscribed": {
+          "type": "bool",
+          "name": "Trello Subscribed",
+          "description": "Whether the current user is subscribed to the card"
+        },
+        "trello_cover_image": {
+          "type": "text",
+          "name": "Trello Cover Image",
+          "description": "Cover image data as JSON string"
+        },
+        "trello_badges": {
+          "type": "text",
+          "name": "Trello Badges",
+          "description": "Badge data as JSON string"
+        },
+        "trello_start_date": {
+          "type": "timestamp",
+          "name": "Trello Start Date",
+          "description": "Start date for the card"
+        }
+      }
+    },
+    "comments": {
+      "name": "Comments",
+      "description": "Comments on cards from Trello mapped to DevRev comments",
+      "fields": {
+        "id": {
+          "type": "text",
+          "name": "ID",
+          "description": "Unique identifier for the comment",
+          "is_required": true,
+          "is_identifier": true,
+          "is_read_only": true
+        },
+        "body": {
+          "type": "rich_text",
+          "name": "Body",
+          "description": "Text content of the comment in Markdown format"
+        },
+        "parent_object_id": {
+          "type": "reference",
+          "name": "Parent Object ID",
+          "description": "ID of the card this comment belongs to",
+          "reference": {
+            "refers_to": {
+              "#record:cards": {}
+            }
+          }
+        },
+        "created_by_id": {
+          "type": "reference",
+          "name": "Created By ID",
+          "description": "ID of the member who created the comment",
+          "reference": {
+            "refers_to": {
+              "#record:users": {}
+            }
+          }
+        },
+        "modified_date": {
+          "type": "timestamp",
+          "name": "Modified Date",
+          "description": "Date when the comment was last edited"
+        },
+        "grandparent_object_id": {
+          "type": "text",
+          "name": "Grandparent Object ID",
+          "description": "ID of the board (grandparent object)"
+        },
+        "grandparent_object_type": {
+          "type": "text",
+          "name": "Grandparent Object Type",
+          "description": "Type of grandparent object (fixed value: board)"
+        },
+        "creator_display_name": {
+          "type": "text",
+          "name": "Creator Display Name",
+          "description": "Username of the comment creator"
+        },
+        "parent_object_type": {
+          "type": "text",
+          "name": "Parent Object Type",
+          "description": "Type of parent object (fixed value: issue)"
+        }
+      }
+    }
+  }
+}

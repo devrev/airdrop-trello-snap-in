@@ -1,30 +1,20 @@
 import extraction from './functions/extraction';
-import healthCheck from './functions/health-check';
-import testExternalSyncUnits from './functions/test_external_sync_units';
-import dataExtractionCheck from './functions/data_extraction_check';
-import checkAuthentication from './functions/check_authentication';
-import fetchBoards from './functions/fetch_boards';
-import fetchOrganizationMembers from './functions/fetch_organization_members';
-import fetchBoardCards from './functions/fetch_board_cards';
-import downloadAttachment from './functions/download_attachment';
-import fetchCreatedBy from './functions/fetch_created_by';
-import getExternalDomainMetadata from './functions/get_external_domain_metadata';
-import getInitialDomainMapping from './functions/get_initial_domain_mapping';
+import fetch_boards from './functions/fetch_boards';
+import fetch_cards from './functions/fetch_cards';
+import fetch_comments from './functions/fetch_comments';
+import fetch_labels from './functions/fetch_labels';
+import fetch_users from './functions/fetch_users';
+import health_check from './functions/health_check';
 
 export const functionFactory = {
   // Add your functions here
   extraction,
-  'health-check': healthCheck,
-  'test_external_sync_units': testExternalSyncUnits,
-  'data_extraction_check': dataExtractionCheck,
-  'check_authentication': checkAuthentication,
-  'fetch_boards': fetchBoards,
-  'fetch_organization_members': fetchOrganizationMembers,
-  'fetch_board_cards': fetchBoardCards,
-  'download_attachment': downloadAttachment,
-  'fetch_created_by': fetchCreatedBy,
-  'get_external_domain_metadata': getExternalDomainMetadata,
-  'get_initial_domain_mapping': getInitialDomainMapping,
+  fetch_boards,
+  fetch_cards,
+  fetch_comments,
+  fetch_labels,
+  fetch_users,
+  health_check,
 } as const;
 
 export type FunctionFactoryType = keyof typeof functionFactory;

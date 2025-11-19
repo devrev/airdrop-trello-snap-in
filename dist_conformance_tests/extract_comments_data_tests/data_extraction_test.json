@@ -1,0 +1,55 @@
+{
+  "context": {
+    "dev_oid": "don:identity:dvrv-us-1:devo/test-org:devu/1",
+    "source_id": "don:integration:dvrv-us-1:devo/test-org:snap_in/test-snap-in",
+    "snap_in_id": "don:integration:dvrv-us-1:devo/test-org:snap_in/test-snap-in",
+    "snap_in_version_id": "don:integration:dvrv-us-1:devo/test-org:snap_in_version/1",
+    "service_account_id": "don:identity:dvrv-us-1:devo/test-org:devu/service-account",
+    "secrets": {
+      "service_account_token": "test-token"
+    }
+  },
+  "payload": {
+    "connection_data": {
+      "key": "key=PLACEHOLDER_API_KEY&token=PLACEHOLDER_TOKEN",
+      "org_id": "PLACEHOLDER_ORG_ID",
+      "key_type": "oauth"
+    },
+    "event_context": {
+      "callback_url": "http://localhost:8002/callback",
+      "dev_org": "don:identity:dvrv-us-1:devo/test-org",
+      "dev_org_id": "don:identity:dvrv-us-1:devo/test-org",
+      "dev_user": "don:identity:dvrv-us-1:devo/test-org:devu/1",
+      "dev_user_id": "don:identity:dvrv-us-1:devo/test-org:devu/1",
+      "external_sync_unit": "68e8befbf2f641caa9b1e275",
+      "external_sync_unit_id": "68e8befbf2f641caa9b1e275",
+      "external_sync_unit_name": "Test Board",
+      "external_system": "trello",
+      "external_system_type": "trello",
+      "import_slug": "test-import",
+      "mode": "INITIAL",
+      "request_id": "test-request-id",
+      "snap_in_slug": "trello-snap-in",
+      "snap_in_version_id": "don:integration:dvrv-us-1:devo/test-org:snap_in_version/1",
+      "sync_run": "test-sync-run",
+      "sync_run_id": "test-sync-run",
+      "sync_tier": "standard",
+      "sync_unit": "test-sync-unit",
+      "sync_unit_id": "test-sync-unit",
+      "uuid": "test-uuid",
+      "worker_data_url": "http://localhost:8003/external-worker"
+    },
+    "event_type": "EXTRACTION_DATA_START",
+    "event_data": {}
+  },
+  "execution_metadata": {
+    "request_id": "test-request-id",
+    "function_name": "extraction",
+    "event_type": "EXTRACTION_DATA_START",
+    "devrev_endpoint": "http://localhost:8003"
+  },
+  "input_data": {
+    "global_values": {},
+    "event_sources": {}
+  }
+}

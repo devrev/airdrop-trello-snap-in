@@ -1,72 +1,85 @@
 import {
-  processTask,
-  ExtractorEventType,
+  axios,
+  axiosClient,
   ExternalSystemAttachmentStreamingParams,
   ExternalSystemAttachmentStreamingResponse,
-  axiosClient,
-  axios,
+  ExtractorEventType,
+  processTask,
   serializeAxiosError,
 } from '@devrev/ts-adaas';
-import { TrelloClient } from '../../../core/trello-client';
+import { TrelloClient, parseConnectionData } from '../../../core/trello-client';
 
 /**
- * Handles streaming of individual attachments from Trello
+ * Stream attachment from Trello
  */
 const getAttachmentStream = async ({
   item,
   event,
 }: ExternalSystemAttachmentStreamingParams): Promise<ExternalSystemAttachmentStreamingResponse> => {
-  const { id, url } = item;
+  const { id } = item;
+  const { url, file_name, parent_id } = item;
+
+  // Parse connection data to get credentials
+  const connectionDataKey = event.payload.connection_data.key;
+  if (!connectionDataKey) {
+    console.warn(`Missing connection data for attachment ${id}`);
+    return {
+      error: {
+        message: `Missing connection data for attachment ${id}`,
+      },
+    };
+  }
+
+  const credentials = parseConnectionData(connectionDataKey);
+  const trelloClient = new TrelloClient(credentials);
 
   try {
-    // Get connection data for OAuth authentication
-    const connectionData = event.payload.connection_data;
-    if (!connectionData || !connectionData.key) {
-      return {
-        error: {
-          message: 'Missing connection data or API key for attachment ' + id,
-        },
-      };
-    }
+    // Check if URL is a Trello attachment that needs OAuth authentication
+    if (url.startsWith('https://api.trello.com/1/cards/')) {
+      // Extract cardId, attachmentId, and fileName from URL
+      // URL format: https://api.trello.com/1/cards/{cardId}/attachments/{attachmentId}/download/{fileName}
+      const urlParts = url.split('/');
+      const cardIdIndex = urlParts.indexOf('cards') + 1;
+      const attachmentIdIndex = urlParts.indexOf('attachments') + 1;
+      const fileNameIndex = urlParts.indexOf('download') + 1;
 
-    // Parse API key and token for OAuth 1.0a
-    const { apiKey, token } = TrelloClient.parseConnectionData(connectionData.key);
-    
-    // Create OAuth 1.0a Authorization header
-    const authHeader = `OAuth oauth_consumer_key="${apiKey}", oauth_token="${token}"`;
+      const cardId = urlParts[cardIdIndex];
+      const attachmentId = urlParts[attachmentIdIndex];
+      const fileName = file_name || urlParts.slice(fileNameIndex).join('/');
 
-    // Make authenticated request to download attachment
-    const fileStreamResponse = await axiosClient.get(url, {
-      responseType: 'stream',
-      headers: {
-        'Accept-Encoding': 'identity',
-        'Authorization': authHeader,
-      },
-    });
+      // Download using OAuth 1.0a authentication
+      const response = await trelloClient.downloadAttachment(cardId, attachmentId, fileName);
 
-    // Check if we were rate limited
-    if (fileStreamResponse.status === 429) {
-      const retryAfter = fileStreamResponse.headers?.['retry-after'];
-      let delay = 60; // Default delay
-      
-      if (retryAfter) {
-        if (/^\d+$/.test(retryAfter)) {
-          delay = parseInt(retryAfter, 10);
-        } else {
-          // HTTP date format - calculate seconds until that time
-          const retryDate = new Date(retryAfter);
-          const now = new Date();
-          delay = Math.max(0, Math.ceil((retryDate.getTime() - now.getTime()) / 1000));
-        }
+      // Check for rate limiting
+      if (response.status_code === 429) {
+        return {
+          delay: response.api_delay,
+        };
       }
-      
-      return { delay };
-    }
 
-    // Return the stream response
-    return { httpStream: fileStreamResponse };
+      // Check for errors
+      if (response.status_code !== 200 || !response.data) {
+        console.warn(`Error downloading attachment ${id}: ${response.message}`);
+        return {
+          error: {
+            message: `Error downloading attachment ${id}: ${response.message}`,
+          },
+        };
+      }
+
+      return { httpStream: response.data };
+    } else {
+      // External URL - download directly without authentication
+      const fileStreamResponse = await axiosClient.get(url, {
+        responseType: 'stream',
+        headers: {
+          'Accept-Encoding': 'identity',
+        },
+      });
+
+      return { httpStream: fileStreamResponse };
+    }
   } catch (error) {
-    // Error handling logic
     if (axios.isAxiosError(error)) {
       console.warn(`Error while fetching attachment ${id} from URL.`, serializeAxiosError(error));
       console.warn('Failed attachment metadata', item);
@@ -82,7 +95,7 @@ const getAttachmentStream = async ({
     };
   }
 };
-  
+
 processTask({
   task: async ({ adapter }) => {
     try {
@@ -103,32 +116,17 @@ processTask({
         await adapter.emit(ExtractorEventType.ExtractionAttachmentsDone);
       }
     } catch (error) {
-      console.error('An error occurred while processing attachments extraction task:', {
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-        error_stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString(),
-      });
-
+      console.error('An error occurred while processing attachment streaming task.', error);
       await adapter.emit(ExtractorEventType.ExtractionAttachmentsError, {
         error: {
-          message: error instanceof Error ? error.message : 'Unknown error occurred during attachments extraction',
+          message: error instanceof Error ? error.message : 'Unknown error during attachment streaming',
         },
       });
     }
   },
   onTimeout: async ({ adapter }) => {
-    try {
-      console.error('Attachments extraction timeout');
-      
-      await adapter.emit(ExtractorEventType.ExtractionAttachmentsProgress, {
-        progress: 50,
-      });
-    } catch (error) {
-      console.error('Error handling timeout in attachments extraction:', {
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-        error_stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    await adapter.emit(ExtractorEventType.ExtractionAttachmentsProgress, {
+      progress: 50,
+    });
   },
 });

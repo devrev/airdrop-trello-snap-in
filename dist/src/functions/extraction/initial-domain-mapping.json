@@ -1,0 +1,290 @@
+{
+  "additional_mappings": {
+    "record_type_mappings": {
+      "cards": {
+        "default_mapping": {
+          "object_category": "stock",
+          "object_type": "issue"
+        },
+        "possible_record_type_mappings": [
+          {
+            "devrev_leaf_type": "issue",
+            "forward": true,
+            "reverse": false,
+            "shard": {
+              "devrev_leaf_type": {
+                "object_category": "stock",
+                "object_type": "issue"
+              },
+              "mode": "create_shard",
+              "stock_field_mappings": {
+                "applies_to_part_id": {
+                  "forward": true,
+                  "reverse": false,
+                  "transformation_method": {
+                    "is_array": false,
+                    "leaf_type": {
+                      "object_category": "stock",
+                      "object_type": "product"
+                    },
+                    "transformation_method": "use_devrev_record"
+                  }
+                },
+                "body": {
+                  "forward": true,
+                  "primary_external_field": "body",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "created_by_id": {
+                  "forward": true,
+                  "primary_external_field": "created_by_id",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "item_url_field": {
+                  "forward": true,
+                  "primary_external_field": "item_url_field",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "owned_by_ids": {
+                  "forward": true,
+                  "primary_external_field": "owned_by_ids",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "priority": {
+                  "forward": true,
+                  "reverse": false,
+                  "transformation_method": {
+                    "enum": "P2",
+                    "transformation_method": "use_fixed_value",
+                    "value": "enum_value"
+                  }
+                },
+                "stage": {
+                  "forward": true,
+                  "primary_external_field": "stage",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "map_enum",
+                    "forward": {
+                      "backlog": {"value": "backlog"},
+                      "in_development": {"value": "in_development"},
+                      "in_review": {"value": "in_review"},
+                      "completed": {"value": "completed"}
+                    }
+                  }
+                },
+                "tags": {
+                  "forward": true,
+                  "primary_external_field": "tags",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "target_close_date": {
+                  "forward": true,
+                  "primary_external_field": "target_close_date",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "title": {
+                  "forward": true,
+                  "primary_external_field": "title",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "comments": {
+        "default_mapping": {
+          "object_category": "stock",
+          "object_type": "comment"
+        },
+        "possible_record_type_mappings": [
+          {
+            "devrev_leaf_type": "comment",
+            "forward": true,
+            "reverse": false,
+            "shard": {
+              "devrev_leaf_type": {
+                "object_category": "stock",
+                "object_type": "comment"
+              },
+              "mode": "create_shard",
+              "stock_field_mappings": {
+                "body": {
+                  "forward": true,
+                  "primary_external_field": "body",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "created_by_id": {
+                  "forward": true,
+                  "primary_external_field": "created_by_id",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "creator_display_name": {
+                  "forward": false,
+                  "primary_external_field": "creator_display_name",
+                  "reverse": true,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "grandparent_object_type": {
+                  "forward": true,
+                  "primary_external_field": "grandparent_object_type",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "modified_by_id": {
+                  "forward": true,
+                  "primary_external_field": "created_by_id",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "parent_object_id": {
+                  "forward": true,
+                  "primary_external_field": "parent_object_id",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "parent_object_type": {
+                  "forward": true,
+                  "primary_external_field": "parent_object_type",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "labels": {
+        "default_mapping": {
+          "object_category": "stock",
+          "object_type": "tag"
+        },
+        "possible_record_type_mappings": [
+          {
+            "devrev_leaf_type": "tag",
+            "forward": true,
+            "reverse": false,
+            "shard": {
+              "devrev_leaf_type": {
+                "object_category": "stock",
+                "object_type": "tag"
+              },
+              "mode": "create_shard",
+              "stock_field_mappings": {
+                "name": {
+                  "forward": true,
+                  "primary_external_field": "name",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "style": {
+                  "forward": true,
+                  "primary_external_field": "color",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "description": {
+                  "forward": true,
+                  "primary_external_field": "description",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "users": {
+        "default_mapping": {
+          "object_category": "stock",
+          "object_type": "dev_user"
+        },
+        "possible_record_type_mappings": [
+          {
+            "devrev_leaf_type": "dev_user",
+            "forward": true,
+            "reverse": false,
+            "shard": {
+              "devrev_leaf_type": {
+                "object_category": "stock",
+                "object_type": "dev_user"
+              },
+              "mode": "create_shard",
+              "stock_field_mappings": {
+                "display_name": {
+                  "forward": true,
+                  "primary_external_field": "username",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "email": {
+                  "forward": true,
+                  "primary_external_field": "email",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                },
+                "full_name": {
+                  "forward": true,
+                  "primary_external_field": "full_name",
+                  "reverse": false,
+                  "transformation_method": {
+                    "transformation_method": "use_directly"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "_dev_external_system_type": "placeholder_system"
+}

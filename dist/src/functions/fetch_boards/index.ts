@@ -1,112 +1,101 @@
 import { FunctionInput } from '../../core/types';
-import { TrelloClient } from '../../core/trello-client';
+import { TrelloClient, parseConnectionData } from '../../core/trello-client';
 
-export interface FetchBoardsResponse {
-  status: 'success' | 'failure';
-  status_code: number;
-  api_delay: number;
-  message: string;
-  timestamp: string;
-  boards?: Array<{
-    id: string;
-    name: string;
-    desc?: string;
-    closed: boolean;
-    url?: string;
-    short_url?: string;
-    date_last_activity?: string;
-    [key: string]: any;
-  }>;
+export interface Board {
+  id: string;
+  name: string;
+  description: string;
+  item_type: string;
 }
 
 /**
- * Fetch boards function that retrieves the list of boards for the authenticated user.
- * Makes a request to /members/me/boards endpoint.
+ * Fetch all boards from a Trello organization
  */
-const run = async (events: FunctionInput[]): Promise<FetchBoardsResponse> => {
-  try {
-    // Validate input
-    if (!events || !Array.isArray(events)) {
-      throw new Error('Invalid input: events must be an array');
-    }
-
-    if (events.length === 0) {
-      throw new Error('Invalid input: events array cannot be empty');
-    }
-
-    // Process only the first event as per requirements
-    const event = events[0];
-
-    // Validate event structure
-    if (!event) {
-      throw new Error('Invalid event: event cannot be null or undefined');
-    }
-
-    if (!event.payload) {
-      throw new Error('Invalid event: missing payload');
-    }
-
-    if (!event.payload.connection_data) {
-      throw new Error('Invalid event: missing connection_data in payload');
-    }
-
-    if (!event.payload.connection_data.key) {
-      throw new Error('Invalid event: missing key in connection_data');
-    }
-
-    // Create Trello client from connection data
-    const trelloClient = TrelloClient.fromConnectionData(event.payload.connection_data.key);
-
-    // Fetch boards from Trello API
-    const response = await trelloClient.getMemberBoards();
-
-    const timestamp = new Date().toISOString();
-
-    if (response.status_code === 200 && response.data) {
-      // Successfully fetched boards
-      return {
-        status: 'success',
-        status_code: response.status_code,
-        api_delay: response.api_delay,
-        message: response.message,
-        timestamp,
-        boards: response.data.map(board => {
-          const { shortUrl, dateLastActivity, ...boardWithoutCamelCase } = board;
-          return {
-            ...boardWithoutCamelCase,
-            short_url: shortUrl,
-            date_last_activity: dateLastActivity,
-          };
-        }),
-      };
-    } else {
-      // Failed to fetch boards
-      return {
-        status: 'failure',
-        status_code: response.status_code,
-        api_delay: response.api_delay,
-        message: response.message,
-        timestamp,
-      };
-    }
-  } catch (error) {
-    const timestamp = new Date().toISOString();
-    
-    // Log error for debugging purposes
-    console.error('Fetch boards function error:', {
-      error_message: error instanceof Error ? error.message : 'Unknown error',
-      error_stack: error instanceof Error ? error.stack : undefined,
-      timestamp,
-    });
-
-    // Return failure response for any errors
+const run = async (events: FunctionInput[]) => {
+  // Process only the first event
+  if (events.length === 0) {
     return {
-      status: 'failure',
-      status_code: 500,
+      status_code: 400,
       api_delay: 0,
-      message: error instanceof Error ? error.message : 'Unknown error occurred during board fetching',
-      timestamp,
+      message: 'No events to process',
     };
+  }
+
+  const event = events[0];
+
+  // Validate event structure
+  if (!event || !event.payload || !event.payload.connection_data) {
+    const error = new Error('Invalid event structure: missing connection_data');
+    console.error(error.message);
+    throw error;
+  }
+
+  try {
+    // Parse credentials from connection data
+    const connectionDataKey = event.payload.connection_data.key;
+    const organizationId = event.payload.connection_data.org_id;
+
+    if (!connectionDataKey) {
+      const error = new Error('Missing connection data key');
+      console.error(error.message);
+      throw error;
+    }
+
+    if (!organizationId) {
+      const error = new Error('Missing organization ID');
+      console.error(error.message);
+      throw error;
+    }
+
+    const credentials = parseConnectionData(connectionDataKey);
+
+    // Initialize Trello client
+    const trelloClient = new TrelloClient(credentials);
+
+    // Fetch boards
+    const response = await trelloClient.getBoards(organizationId);
+
+    // Handle rate limiting
+    if (response.status_code === 429) {
+      // Ensure api_delay is a valid number
+      const apiDelay = typeof response.api_delay === 'number' && !isNaN(response.api_delay) 
+        ? response.api_delay 
+        : 3;
+      
+      return {
+        status_code: response.status_code,
+        api_delay: apiDelay,
+        message: response.message,
+      };
+    }
+
+    // Handle API errors
+    if (response.status_code !== 200 || !response.data) {
+      return {
+        status_code: response.status_code,
+        api_delay: response.api_delay,
+        message: response.message,
+      };
+    }
+
+    // Map boards according to ObjectPRD
+    const boards: Board[] = response.data.map((board: any) => ({
+      id: board.id,
+      name: board.name,
+      description: board.desc || '',
+      item_type: 'cards',
+    }));
+
+    return {
+      status_code: 200,
+      api_delay: 0,
+      message: `Successfully fetched ${boards.length} boards`,
+      data: boards,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error in fetch_boards:', errorMessage);
+    throw error;
   }
 };
 
