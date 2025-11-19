@@ -1,0 +1,8 @@
+base-folder: ../devrev-snapin-shared/base_folder
+template-dir: ../devrev-snapin-shared
+unittests-script: ../devrev-snapin-shared/run_unittests_jest.sh
+conformance-tests-script: ../devrev-snapin-shared/run_devrev_snapin_conformance_tests.sh
+verbose: true # verbose flag, defaults to false if not set
+
+build-folder: build_edm
+conformance-tests-folder: conformance_tests_edm
