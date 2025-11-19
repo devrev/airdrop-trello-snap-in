@@ -1,0 +1,55 @@
+{
+    "execution_metadata": {
+        "function_name": "extraction",
+        "devrev_endpoint": "http://localhost:8003",
+        "request_id": "test-request-id-rate-limit-001",
+        "event_type": "EXTRACTION_EXTERNAL_SYNC_UNITS_START"
+    },
+    "payload": {
+        "event_type": "EXTRACTION_EXTERNAL_SYNC_UNITS_START",
+        "event_context": {
+            "callback_url": "http://localhost:8002/callback",
+            "dev_org": "test-dev-org",
+            "dev_org_id": "test-dev-org-id",
+            "dev_user": "test-dev-user",
+            "dev_user_id": "test-dev-user-id",
+            "external_sync_unit": "test-sync-unit",
+            "external_sync_unit_id": "test-sync-unit-id",
+            "external_sync_unit_name": "test-sync-unit-name",
+            "external_system": "trello",
+            "external_system_type": "trello",
+            "import_slug": "test-import-slug",
+            "mode": "INITIAL",
+            "request_id": "test-request-id-rate-limit-001",
+            "snap_in_slug": "trello-snap-in",
+            "snap_in_version_id": "test-version-id",
+            "sync_run": "test-sync-run",
+            "sync_run_id": "test-sync-run-id",
+            "sync_tier": "test-tier",
+            "sync_unit": "test-sync-unit",
+            "sync_unit_id": "test-sync-unit-id",
+            "uuid": "test-uuid-rate-limit",
+            "worker_data_url": "http://localhost:8003/external-worker"
+        },
+        "connection_data": {
+            "org_id": "PLACEHOLDER_ORG_ID",
+            "org_name": "Test Organization",
+            "key": "key=PLACEHOLDER_API_KEY&token=PLACEHOLDER_TOKEN",
+            "key_type": "api_key"
+        }
+    },
+    "context": {
+        "secrets": {
+            "service_account_token": "test-token"
+        },
+        "snap_in_version_id": "test-version-id",
+        "dev_oid": "test-dev-org-id",
+        "source_id": "test-source-id",
+        "snap_in_id": "test-snap-in-id",
+        "service_account_id": "test-service-account-id"
+    },
+    "input_data": {
+        "global_values": {},
+        "event_sources": {}
+    }
+}

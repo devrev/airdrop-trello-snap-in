@@ -1,0 +1,32 @@
+{
+  "execution_metadata": {
+    "request_id": "test-fetch-cards-request-001",
+    "function_name": "fetch_cards",
+    "event_type": "test:fetch_cards",
+    "devrev_endpoint": "http://localhost:8003"
+  },
+  "context": {
+    "dev_oid": "test-dev-org-id",
+    "source_id": "test-source-id",
+    "snap_in_id": "test-snap-in-id",
+    "snap_in_version_id": "test-snap-in-version-id",
+    "service_account_id": "test-service-account-id",
+    "secrets": {
+      "service_account_token": "test-service-account-token"
+    }
+  },
+  "payload": {
+    "connection_data": {
+      "key": "PLACEHOLDER_CONNECTION_KEY",
+      "org_id": "PLACEHOLDER_ORG_ID",
+      "key_type": "api_key_and_token"
+    },
+    "board_id": "68e8befbf2f641caa9b1e275"
+  },
+  "input_data": {
+    "global_values": {
+      "idBoard": "68e8befbf2f641caa9b1e275"
+    },
+    "event_sources": {}
+  }
+}
