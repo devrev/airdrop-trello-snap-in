@@ -1,25 +1,12 @@
 import socket
 import threading
-import socketserver
-import time
-import sys
-import ssl
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
+import ssl
+from urllib.parse import urlparse
 import datetime
 import email.utils
-from urllib.parse import urlparse
-
-# Rate limiting settings
-TOKEN_BUCKET_CAPACITY = 100  # requests
-REFILL_RATE = 10  # requests per second
-
-# ============================================================================
-# SERVICE-SPECIFIC CONFIGURATION: Customize this section for your integration
-# ============================================================================
-# This configuration mimics Trello's rate limiting response format.
-# When adapting this proxy for a different third-party service, modify these
-# settings to match that service's 429 response behavior.
-# ============================================================================
+import urllib.request, urllib.error
 
 RATE_LIMIT_DELAY = 3  # seconds - Time to wait before retrying
 
@@ -28,330 +15,220 @@ class RateLimiterState:
     def __init__(self):
         self.lock = threading.Lock()
         self.rate_limiting_active = False
-        self.test_name = None
 
-    def start_rate_limiting(self, test_name):
+    def start_rate_limiting(self):
         with self.lock:
             self.rate_limiting_active = True
-            self.test_name = test_name
 
     def end_rate_limiting(self):
         with self.lock:
             self.rate_limiting_active = False
-            self.test_name = None
 
     def is_rate_limiting_active(self):
         with self.lock:
-            return self.rate_limiting_active, self.test_name
+            return self.rate_limiting_active
 
 rate_limiter_state = RateLimiterState()
 
-class TokenBucket:
-    """A thread-safe token bucket for rate limiting."""
-    def __init__(self, capacity, refill_rate):
-        self.capacity = float(capacity)
-        self.refill_rate = float(refill_rate)
-        self.tokens = float(capacity)
-        self.last_refill = time.time()
-        self.lock = threading.Lock()
-
-    def consume(self, tokens):
-        """Consumes tokens from the bucket. Returns True if successful, False otherwise."""
-        with self.lock:
-            now = time.time()
-            time_since_refill = now - self.last_refill
-            new_tokens = time_since_refill * self.refill_rate
-            self.tokens = min(self.capacity, self.tokens + new_tokens)
-            self.last_refill = now
-
-            if self.tokens >= tokens:
-                self.tokens -= tokens
-                return True
-            return False
-
-rate_limiter = TokenBucket(TOKEN_BUCKET_CAPACITY, REFILL_RATE)
-
-def create_rate_limit_response():
+class ProxyHandler(BaseHTTPRequestHandler):
     """
-    TODO: Adopt this based on the 3rd party service's rate limiting response format.
-
-    ========================================================================
-    SERVICE-SPECIFIC: Customize this function for your third-party service
-    ========================================================================
-    
-    Generates the 429 Rate Limit response matching the third-party service's
-    format. Different services may use different:
-    - Response body structures (e.g., {"detail": "..."} vs {"error": "..."})
-    - Retry-After header formats (HTTP date vs seconds)
-    - Error messages and field names
-    
-    This implementation matches Trello's rate limiting response format.
-    
-    Returns:
-        tuple: (status_code, status_message, response_body_dict, headers_dict)
+    This proxy handler uses the high-level http.server module to robustly handle
+    HTTP requests. It specifically handles CONNECT requests for HTTPS tunneling
+    and our custom /start_rate_limiting and /end_rate_limiting endpoints.
     """
-    retry_after_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=RATE_LIMIT_DELAY)
-    retry_after_str = email.utils.formatdate(
-        timeval=retry_after_time.timestamp(),
-        localtime=False,
-        usegmt=True
-    )
-    
-    response_body = {"detail": "Rate limit exceeded"}
-    headers = {"Retry-After": retry_after_str}
-    
-    return 429, "Too Many Requests", response_body, headers
+    server_version = "rate-limit-proxy/0.1"
 
-class ProxyHandler(socketserver.BaseRequestHandler):
-    """Handles incoming proxy requests."""
-    def handle(self):
-        if not rate_limiter.consume(1):
-            print("Rate limit exceeded. Dropping connection.")
-            try:
-                self.request.sendall(b'HTTP/1.1 429 Too Many Requests\r\n\r\n')
-            except OSError:
-                pass # Client might have already closed the connection.
-            finally:
-                self.request.close()
+    def _check_rate_limit(self, method_name):
+        if rate_limiter_state.is_rate_limiting_active():
+            print(f"Rate limiting is active. Blocking request with 429 from {method_name} method")
+            self.send_error(429, "Too Many Requests")
+            return True
+        return False
+
+    def do_CONNECT(self):
+        """Handles CONNECT requests to establish an HTTPS tunnel."""
+        if self._check_rate_limit('do_CONNECT'):
             return
+
+        self.send_response(200, 'Connection Established')
+        self.end_headers()
 
         try:
-            data = self.request.recv(4096)
-        except ConnectionResetError:
-            return  # Client closed connection.
-        
-        if not data:
-            return
-
-        first_line = data.split(b'\r\n')[0]
-        try:
-            method, target, _ = first_line.split()
-        except ValueError:
-            print(f"Could not parse request: {first_line}")
-            self.request.close()
-            return
-
-        print(f"Received request: {method.decode('utf-8')} {target.decode('utf-8')}")
-
-        path = target.decode('utf-8')
-        # Check for control plane endpoints on the proxy itself
-        if path.startswith(('/start_rate_limiting', '/end_rate_limiting')):
-            self.handle_control_request(method, path, data)
-            return
-
-        # Check if global rate limiting is active
-        is_active, test_name = rate_limiter_state.is_rate_limiting_active()
-        if is_active:
-            print(f"Rate limiting is active for test: '{test_name}'. Blocking request.")
-            
-            # Generate service-specific rate limit response
-            status_code, status_message, response_body, headers = create_rate_limit_response()
-            self.send_json_response(status_code, status_message, response_body, headers=headers)
-            return
-
-        if method == b'CONNECT':
-            self.handle_connect(target)
-        else:
-            self.handle_http_request(target, data)
-
-    def get_request_body(self, data):
-        header_end = data.find(b'\r\n\r\n')
-        if header_end != -1:
-            return data[header_end + 4:].decode('utf-8')
-        return ""
-
-    def send_json_response(self, status_code, status_message, body_json, headers=None):
-        body_bytes = json.dumps(body_json).encode('utf-8')
-        
-        response_headers = [
-            f"HTTP/1.1 {status_code} {status_message}",
-            "Content-Type: application/json",
-            f"Content-Length: {len(body_bytes)}",
-            "Connection: close",
-        ]
-
-        if headers:
-            for key, value in headers.items():
-                response_headers.append(f"{key}: {value}")
-
-        response_headers.append("")
-        response_headers.append("")
-        
-        response = '\r\n'.join(response_headers).encode('utf-8') + body_bytes
-        try:
-            self.request.sendall(response)
-        except OSError:
-            pass # Client might have closed the connection.
-        finally:
-            self.request.close()
-
-    def handle_control_request(self, method, path, data):
-        if method != b'POST':
-            self.send_json_response(405, "Method Not Allowed", {"error": "Only POST method is allowed"})
-            return
-
-        if path == '/start_rate_limiting':
-            body_str = self.get_request_body(data)
-            if not body_str:
-                self.send_json_response(400, "Bad Request", {"error": "Request body is missing or empty"})
-                return
-            try:
-                body_json = json.loads(body_str)
-                test_name = body_json.get('test_name')
-                if not test_name or not isinstance(test_name, str):
-                    self.send_json_response(400, "Bad Request", {"error": "'test_name' is missing or not a string"})
-                    return
-            except json.JSONDecodeError:
-                self.send_json_response(400, "Bad Request", {"error": "Invalid JSON in request body"})
-                return
-            
-            rate_limiter_state.start_rate_limiting(test_name)
-            response_body = {"status": f"rate limiting started for test: {test_name}"}
-            self.send_json_response(200, "OK", response_body)
-
-        elif path == '/end_rate_limiting':
-            rate_limiter_state.end_rate_limiting()
-            response_body = {"status": "rate limiting ended"}
-            self.send_json_response(200, "OK", response_body)
-        else:
-            self.send_json_response(404, "Not Found", {"error": "Endpoint not found"})
-
-    def handle_http_request(self, target, data):
-        """Handles HTTP requests like GET, POST, etc."""
-        try:
-            parsed_url = urlparse(target.decode('utf-8'))
-            host = parsed_url.hostname
-            port = parsed_url.port
-            if port is None:
-                port = 443 if parsed_url.scheme == 'https' else 80
-        except Exception as e:
-            print(f"Could not parse URL for HTTP request: {target}. Error: {e}")
-            self.request.close()
-            return
-
-        if not host:
-            print(f"Invalid host in URL: {target}")
-            self.request.close()
-            return
-
-        try:
-            remote_socket = socket.create_connection((host, port), timeout=10)
-            if parsed_url.scheme == 'https':
-                context = ssl.create_default_context()
-                remote_socket = context.wrap_socket(remote_socket, server_hostname=host)
-        except (socket.error, ssl.SSLError) as e:
-            print(f"Failed to connect or SSL wrap to {host}:{port}: {e}")
-            self.request.close()
-            return
-
-        # Modify the request to use a relative path and force connection closing
-        # This ensures each request gets its own connection and is logged.
-        header_end = data.find(b'\r\n\r\n')
-        if header_end == -1:
-            # If no header-body separator is found, assume it's a simple request with no body.
-            header_end = len(data)
-
-        header_data = data[:header_end]
-        body = data[header_end:]
-
-        lines = header_data.split(b'\r\n')
-        first_line = lines[0]
-        headers = lines[1:]
-
-        method, _, http_version = first_line.split(b' ', 2)
-
-        path = parsed_url.path or '/'
-        if parsed_url.query:
-            path += '?' + parsed_url.query
-
-        new_first_line = b' '.join([method, path.encode('utf-8'), http_version])
-
-        new_headers = []
-        for header in headers:
-            # Remove existing connection-related headers, as we're forcing it to close.
-            if not header.lower().startswith(b'connection:') and \
-               not header.lower().startswith(b'proxy-connection:'):
-                new_headers.append(header)
-        new_headers.append(b'Connection: close')
-
-        modified_header_part = new_first_line + b'\r\n' + b'\r\n'.join(new_headers)
-        modified_request = modified_header_part + body
-
-        try:
-            remote_socket.sendall(modified_request)
-        except OSError:
-            remote_socket.close()
-            return
-
-        self.tunnel(self.request, remote_socket)
-
-    def handle_connect(self, target):
-        """Handles CONNECT requests for HTTPS traffic."""
-        try:
-            host, port_str = target.split(b':')
+            host, port_str = self.path.split(':')
             port = int(port_str)
         except ValueError:
-            print(f"Invalid target for CONNECT: {target}")
-            self.request.close()
-            return
-
-        try:
-            remote_socket = socket.create_connection((host.decode('utf-8'), port), timeout=10)
-        except socket.error as e:
-            print(f"Failed to connect to {host.decode('utf-8')}:{port}: {e}")
-            self.request.close()
+            self.connection.close()
             return
         
         try:
-            self.request.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
-        except OSError:
-            remote_socket.close()
+            remote_socket = socket.create_connection((host, port), timeout=10)
+        except socket.error:
+            self.connection.close()
             return
 
-        self.tunnel(self.request, remote_socket)
+        self.connection.setblocking(0)
+        remote_socket.setblocking(0)
 
-    def tunnel(self, client_socket, remote_socket):
-        """Tunnels data between the client and the remote server."""
-        stop_event = threading.Event()
-
-        def forward(src, dst):
-            try:
-                while not stop_event.is_set():
-                    data = src.recv(4096)
-                    if not data:
-                        break
-                    dst.sendall(data)
-            except OSError:
-                pass
-            finally:
-                stop_event.set()
-
-        client_thread = threading.Thread(target=forward, args=(client_socket, remote_socket))
-        remote_thread = threading.Thread(target=forward, args=(remote_socket, client_socket))
-
-        client_thread.start()
-        remote_thread.start()
-
-        client_thread.join()
-        remote_thread.join()
-
-        client_socket.close()
+        print(f"Tunneling CONNECT request to {self.path}")
+        while True:
+            import select
+            r, w, x = select.select([self.connection, remote_socket], [], [], 5)
+            if not r:
+                break
+            
+            if self.connection in r:
+                data = self.connection.recv(8192)
+                if not data:
+                    break
+                if remote_socket.send(data) <= 0:
+                    break
+            
+            if remote_socket in r:
+                data = remote_socket.recv(8192)
+                if not data:
+                    break
+                if self.connection.send(data) <= 0:
+                    break
+        
         remote_socket.close()
+        self.connection.close()
 
-class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    daemon_threads = True
-    allow_reuse_address = True
+    def _proxy_request(self, method):
+        if self._check_rate_limit(f'do_{method}'):
+            return
+
+        try:
+            # We must remove the Host header from the original request, as it
+            # points to the proxy itself. urllib will add the correct Host.
+            req_headers = dict(self.headers)
+            if 'Host' in req_headers:
+                del req_headers['Host']
+            
+            # Create a proxy handler that explicitly uses no proxies, to avoid
+            # the server trying to proxy itself.
+            proxy_handler = urllib.request.ProxyHandler({})
+            opener = urllib.request.build_opener(proxy_handler)
+
+            body = None
+            if method in ('POST', 'PUT', 'PATCH'):
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_length)
+
+            # Create and send the request to the target server
+            req = urllib.request.Request(self.path, data=body, headers=req_headers, method=method)
+            with opener.open(req, timeout=10) as response:
+                # Send the response status and headers back to the original client
+                self.send_response(response.status, response.reason)
+                for key, value in response.getheaders():
+                    # Do not forward hop-by-hop headers
+                    if key.lower() not in ('transfer-encoding', 'connection'):
+                        self.send_header(key, value)
+                self.end_headers()
+
+                # Stream the response body back to the original client
+                self.wfile.write(response.read())
+
+        except urllib.error.HTTPError as e:
+            # If the upstream server returned an HTTP error (like 401, 404, etc.),
+            # we should propagate that error back to the original client.
+            self.send_response(e.code, e.reason)
+            for key, value in e.headers.items():
+                if key.lower() not in ('transfer-encoding', 'connection'):
+                    self.send_header(key, value)
+            self.end_headers()
+            self.wfile.write(e.read())
+
+        except Exception as e:
+            self.send_error(502, f"Proxying {method} request failed: {e}")
+
+    def do_GET(self):
+        """
+        Handles direct GET requests that are sent to the proxy.
+        This is necessary for clients that use non-CONNECT proxying for GET.
+        """
+        self._proxy_request('GET')
+
+    def do_PUT(self):
+        """
+        Handles direct PUT requests that are sent to the proxy.
+        This is necessary for clients that use non-CONNECT proxying for PUT.
+        """
+        self._proxy_request('PUT')
+
+    def do_POST(self):
+        """
+        Handles the control endpoints for starting and stopping rate limiting,
+        or proxies POST requests.
+        """
+        if self.path == '/start_rate_limiting':
+            rate_limiter_state.start_rate_limiting()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'status': 'rate limiting started'}).encode('utf-8'))
+            print("Rate limiting started.")
+            return
+        elif self.path == '/end_rate_limiting':
+            rate_limiter_state.end_rate_limiting()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'status': 'rate limiting ended'}).encode('utf-8'))
+            print("Rate limiting ended.")
+            return
+
+        self._proxy_request('POST')
+
+    def do_PATCH(self):
+        """
+        Handles direct PATCH requests that are sent to the proxy.
+        This is necessary for clients that use non-CONNECT proxying for PATCH.
+        """
+        self._proxy_request('PATCH')
+
+    def do_DELETE(self):
+        """
+        Handles direct DELETE requests that are sent to the proxy.
+        This is necessary for clients that use non-CONNECT proxying for DELETE.
+        """
+        self._proxy_request('DELETE')
+
+    def send_error(self, code, message=None):
+        """Overrides the default send_error to add custom headers for 429."""
+        if code == 429:
+            self.log_error("Code %d, message %s", code, message)
+            self.send_response(429, "Too Many Requests")
+            self.send_header('Content-type', 'application/json')
+            
+            retry_after_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=RATE_LIMIT_DELAY)
+            retry_after_str = email.utils.formatdate(
+                timeval=retry_after_time.timestamp(),
+                localtime=False,
+                usegmt=True
+            )
+            self.send_header('Retry-After', retry_after_str)
+            
+            self.end_headers()
+            self.wfile.write(json.dumps({'detail': 'Rate limit exceeded'}).encode('utf-8'))
+            print("Finished blocking rate limiting request with 429.")
+        else:
+            super().send_error(code, message)
+
+class ThreadingHTTPServer(HTTPServer):
+    """Enable multi-threading for the HTTPServer."""
+    daemon_threads = False
 
 def main():
     HOST, PORT = "localhost", 8004
     
     try:
-        server = ThreadingTCPServer((HOST, PORT), ProxyHandler)
+        server = ThreadingHTTPServer((HOST, PORT), ProxyHandler)
         print(f"Starting proxy server on {HOST}:{PORT}")
         server.serve_forever()
     except Exception as e:
-        print(f"Could not start proxy server: {e}", file=sys.stderr)
+        print(f"Could not start proxy server: {e}")
         # The script `run_devrev_snapin_conformance_tests.sh` checks for exit code 69.
+        import sys
         sys.exit(69)
 
 if __name__ == "__main__":
