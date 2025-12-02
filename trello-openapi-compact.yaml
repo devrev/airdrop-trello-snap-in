@@ -22,7 +22,7 @@ security:
   - APIKey: []
     APIToken: []
 paths:
-  '/boards/{id}/cards':
+  '/boards/{id}/cards?attachments=true':
     get:
       description: >-
         Get all of the open Cards on a Board. See [Nested
@@ -32,6 +32,15 @@ paths:
         - id
         - limit
         - before
+        - name: attachments
+          in: query
+          description: >-
+            Whether to include attachments on each card. Defaults to false.
+          required: false
+          schema:
+            type: boolean
+            default: false
+            example: true
       responses:
         '200':
           description: Success
@@ -43,17 +52,17 @@ paths:
                   $ref: '#/components/schemas/Card'
               examples:
                 sample:
-                  summary: Example response
+                  summary: Example response with attachments
                   value:
-                    - id: "card_id_123"
+                    - id: "68e8befc8381b0efa25ce1eb"
                       badges:
-                        attachments: 1
+                        attachments: 2
                         fogbugz: ""
                         checkItems: 0
                         checkItemsChecked: 0
                         checkItemsEarliestDue: null
-                        comments: 0
-                        description: false
+                        comments: 1
+                        description: true
                         due: null
                         dueComplete: false
                         lastUpdatedByAi: false
@@ -67,63 +76,185 @@ paths:
                         votes: 0
                         maliciousAttachments: 0
                         viewingMemberVoted: false
-                        subscribed: false
+                        subscribed: true
                       checkItemStates: []
                       closed: false
                       dueComplete: false
-                      dateLastActivity: "2025-06-06T06:08:05.912Z"
-                      desc: ""
+                      dateLastActivity: "2025-10-30T13:34:46.257Z"
+                      desc: "This is the description for card number 1.\n\n‌\n\n**And this is rich text description**"
                       descData:
                         emoji: {}
                       due: null
                       dueReminder: null
                       email: null
-                      idBoard: "board_id_456"
+                      idBoard: "68e8befbf2f641caa9b1e275"
                       idChecklists: []
-                      idList: "list_id_789"
-                      idMembers: []
+                      idList: "68e8befbf2f641caa9b1e2bf"
+                      idMembers:
+                        - "6752eb529b14a3446b75e69c"
                       idMembersVoted: []
                       idShort: 1
-                      idAttachmentCover: null
-                      labels: []
-                      idLabels: []
+                      idAttachmentCover: "68e8c017685c485df14234b1"
+                      labels:
+                        - id: "68e8befbf2f641caa9b1e2b8"
+                          idBoard: "68e8befbf2f641caa9b1e275"
+                          idOrganization: "6752eb95c833e6b206fcf388"
+                          name: ""
+                          nodeId: "ari:cloud:trello::label/workspace/6752eb95c833e6b206fcf388/68e8befbf2f641caa9b1e2b8"
+                          color: "green"
+                          uses: 1
+                        - id: "68e8befbf2f641caa9b1e2b9"
+                          idBoard: "68e8befbf2f641caa9b1e275"
+                          idOrganization: "6752eb95c833e6b206fcf388"
+                          name: ""
+                          nodeId: "ari:cloud:trello::label/workspace/6752eb95c833e6b206fcf388/68e8befbf2f641caa9b1e2b9"
+                          color: "yellow"
+                          uses: 1
+                        - id: "68e8befbf2f641caa9b1e2ba"
+                          idBoard: "68e8befbf2f641caa9b1e275"
+                          idOrganization: "6752eb95c833e6b206fcf388"
+                          name: ""
+                          nodeId: "ari:cloud:trello::label/workspace/6752eb95c833e6b206fcf388/68e8befbf2f641caa9b1e2ba"
+                          color: "orange"
+                          uses: 1
+                      idLabels:
+                        - "68e8befbf2f641caa9b1e2b8"
+                        - "68e8befbf2f641caa9b1e2b9"
+                        - "68e8befbf2f641caa9b1e2ba"
                       manualCoverAttachment: false
-                      name: "Card Name"
-                      nodeId: "node_id_abc"
+                      name: "Card12-8c90c00e-355e-46fd-bfcb-895a36feb0dcasdf"
+                      nodeId: "ari:cloud:trello::card/workspace/6752eb95c833e6b206fcf388/68e8befc8381b0efa25ce1eb"
                       pinned: false
                       pos: 140737488355328
-                      shortLink: "short_link_xyz"
-                      shortUrl: "https://trello.com/c/short_link_xyz"
+                      shortLink: "eNOnhfkI"
+                      shortUrl: "https://trello.com/c/eNOnhfkI"
                       start: null
-                      subscribed: false
-                      url: "https://trello.com/c/short_link_xyz/1-card-name"
+                      subscribed: true
+                      url: "https://trello.com/c/eNOnhfkI/1-card12-8c90c00e-355e-46fd-bfcb-895a36feb0dcasdf"
                       cover:
-                        idAttachment: null
+                        idAttachment: "68e8c017685c485df14234b1"
                         color: null
                         idUploadedBackground: null
                         size: "normal"
                         brightness: "dark"
+                        yPosition: 0.5
+                        scaled:
+                          - id: "68e8c018685c485df1423701"
+                            _id: "68e8c018685c485df1423701"
+                            scaled: false
+                            url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423701/download/DevRev_Photo.webp"
+                            bytes: 322
+                            height: 50
+                            width: 70
+                          - id: "68e8c018685c485df1423703"
+                            _id: "68e8c018685c485df1423703"
+                            scaled: true
+                            url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423703/download/DevRev_Photo.webp"
+                            bytes: 626
+                            height: 78
+                            width: 149
+                          - id: "68e8c018685c485df1423702"
+                            _id: "68e8c018685c485df1423702"
+                            scaled: false
+                            url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423702/download/DevRev_Photo.webp"
+                            bytes: 1322
+                            height: 150
+                            width: 250
+                          - id: "68e8c018685c485df1423704"
+                            _id: "68e8c018685c485df1423704"
+                            scaled: true
+                            url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423704/download/DevRev_Photo.webp"
+                            bytes: 1458
+                            height: 157
+                            width: 300
+                          - id: "68e8c018685c485df1423705"
+                            _id: "68e8c018685c485df1423705"
+                            scaled: true
+                            url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423705/download/DevRev_Photo.webp"
+                            bytes: 2942
+                            height: 314
+                            width: 600
+                          - id: "68e8c018685c485df1423706"
+                            _id: "68e8c018685c485df1423706"
+                            scaled: true
+                            url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423706/download/DevRev_Photo.webp"
+                            bytes: 6118
+                            height: 627
+                            width: 1200
+                        edgeColor: "#fcfcfc"
                         idPlugin: null
                       isTemplate: false
                       cardRole: null
                       mirrorSourceId: null
-                      attachments: [
-                        {
-                          id: "689c8fbf0d9f05de7564d93d",
-                          bytes: null,
-                          date: "2025-08-13T13:14:39.839Z", 
-                          edgeColor: null,
-                          idMember: "6752eb529b14a3446b75e69c",
-                          isMalicious: false,
-                          isUpload: false,
-                          mimeType: "",
-                          name: "devrev cover",
-                          previews: [],
-                          url: "https://www.atom.com/name/Test",
-                          pos: 140737488355328,
-                          fileName: "Test"
-                        }
-                      ]
+                      attachments:
+                        - id: "68e8bff4ca7f017ba0524c05"
+                          bytes: null
+                          date: "2025-10-10T08:12:36.698Z"
+                          edgeColor: null
+                          idMember: "6752eb529b14a3446b75e69c"
+                          isMalicious: false
+                          isUpload: false
+                          mimeType: ""
+                          name: "devrev cover"
+                          previews: []
+                          url: "https://devrev.ai/"
+                          pos: 140737488355328
+                          fileName: ""
+                        - id: "68e8c017685c485df14234b1"
+                          bytes: 9425
+                          date: "2025-10-10T08:13:11.683Z"
+                          edgeColor: "#fcfcfc"
+                          idMember: "6752eb529b14a3446b75e69c"
+                          isMalicious: false
+                          isUpload: true
+                          mimeType: "image/png"
+                          name: "DevRev Photo"
+                          previews:
+                            - url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423701/download/DevRev_Photo.webp"
+                              _id: "68e8c018685c485df1423701"
+                              id: "68e8c018685c485df1423701"
+                              scaled: false
+                              bytes: 322
+                              height: 50
+                              width: 70
+                            - url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423702/download/DevRev_Photo.webp"
+                              _id: "68e8c018685c485df1423702"
+                              id: "68e8c018685c485df1423702"
+                              scaled: false
+                              bytes: 1322
+                              height: 150
+                              width: 250
+                            - url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423703/download/DevRev_Photo.webp"
+                              _id: "68e8c018685c485df1423703"
+                              id: "68e8c018685c485df1423703"
+                              scaled: true
+                              bytes: 626
+                              height: 78
+                              width: 149
+                            - url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423704/download/DevRev_Photo.webp"
+                              _id: "68e8c018685c485df1423704"
+                              id: "68e8c018685c485df1423704"
+                              scaled: true
+                              bytes: 1458
+                              height: 157
+                              width: 300
+                            - url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423705/download/DevRev_Photo.webp"
+                              _id: "68e8c018685c485df1423705"
+                              id: "68e8c018685c485df1423705"
+                              scaled: true
+                              bytes: 2942
+                              height: 314
+                              width: 600
+                            - url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/previews/68e8c018685c485df1423706/download/DevRev_Photo.webp"
+                              _id: "68e8c018685c485df1423706"
+                              id: "68e8c018685c485df1423706"
+                              scaled: true
+                              bytes: 6118
+                              height: 627
+                              width: 1200
+                          url: "https://trello.com/1/cards/68e8befc8381b0efa25ce1eb/attachments/68e8c017685c485df14234b1/download/DevRev_Photo.png"
+                          pos: 140737488371712
+                          fileName: "DevRev_Photo.png"
         '429':
           description: Rate limit exceeded.
           headers:
@@ -251,11 +382,20 @@ paths:
               schema:
                 type: string
                 format: date-time
-  '/organizations/{id}/members':
+  '/organizations/{id}/members?fields=fullName,avatarHash,username':
     get:
       description: List the members in a Workspace
       parameters:
         - id
+        - name: fields
+          in: query
+          description: >-
+            All or a comma-separated list of member fields to include in the response.
+            Valid values include: id, fullName, username, avatarHash, lastActive, etc.
+          required: false
+          schema:
+            type: string
+            example: "fullName,avatarHash,username"
       responses:
         '200':
           description: Success
@@ -270,10 +410,11 @@ paths:
                 sample:
                   summary: Example response
                   value:
-                    - id: "examplesaasID1"
-                      fullName: "My full name"
+                    - id: "6752eb529b14a3446b75e69c"
+                      fullName: "SaaS Connectors"
+                      avatarHash: "66f803055e4e7070d6a1cc83cc06e6cd"
                       username: "examplesaas1"
-                      lastActive: "2025-04-06T08:37:21.065Z"
+                      lastActive: "2025-10-30T13:34:46.300Z"
         '429':
           description: Rate limit exceeded.
           headers:
@@ -283,12 +424,239 @@ paths:
                 Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
               schema:
                 type: string
-  '/cards/{id}/actions':
+  '/organizations/{id}/boards':
     get:
-      description: >-
-        Get the actions (activity/history) for a card. Actions represent events like
-        card creation, updates, comments, etc. Use the filter parameter to specify
-        which types of actions to retrieve.
+      description: List the boards in a Workspace
+      parameters:
+        - id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Board'
+              examples:
+                sample:
+                  summary: Example response
+                  value:
+                    - id: "68e8befbf2f641caa9b1e275"
+                      nodeId: "ari:cloud:trello::board/workspace/6752eb95c833e6b206fcf388/68e8befbf2f641caa9b1e275"
+                      name: "2025-10-10 - Board with 12 cards"
+                      desc: ""
+                      descData: null
+                      closed: false
+                      dateClosed: null
+                      idOrganization: "6752eb95c833e6b206fcf388"
+                      idEnterprise: null
+                      limits:
+                        attachments:
+                          perBoard:
+                            status: "ok"
+                            disableAt: 36000
+                            warnAt: 28800
+                          perCard:
+                            status: "ok"
+                            disableAt: 1000
+                            warnAt: 800
+                        boards:
+                          totalMembersPerBoard:
+                            status: "ok"
+                            disableAt: 1600
+                            warnAt: 1280
+                          totalAccessRequestsPerBoard:
+                            status: "ok"
+                            disableAt: 4000
+                            warnAt: 3200
+                        cards:
+                          openPerBoard:
+                            status: "ok"
+                            disableAt: 5000
+                            warnAt: 4000
+                          openPerList:
+                            status: "ok"
+                            disableAt: 5000
+                            warnAt: 4000
+                          totalPerBoard:
+                            status: "ok"
+                            disableAt: 2000000
+                            warnAt: 1600000
+                          totalPerList:
+                            status: "ok"
+                            disableAt: 1000000
+                            warnAt: 800000
+                        checklists:
+                          perBoard:
+                            status: "ok"
+                            disableAt: 1800000
+                            warnAt: 1440000
+                          perCard:
+                            status: "ok"
+                            disableAt: 500
+                            warnAt: 400
+                        checkItems:
+                          perChecklist:
+                            status: "ok"
+                            disableAt: 200
+                            warnAt: 160
+                        customFields:
+                          perBoard:
+                            status: "ok"
+                            disableAt: 50
+                            warnAt: 40
+                        customFieldOptions:
+                          perField:
+                            status: "ok"
+                            disableAt: 50
+                            warnAt: 40
+                        labels:
+                          perBoard:
+                            status: "ok"
+                            disableAt: 1000
+                            warnAt: 800
+                        lists:
+                          openPerBoard:
+                            status: "ok"
+                            disableAt: 500
+                            warnAt: 400
+                          totalPerBoard:
+                            status: "ok"
+                            disableAt: 3000
+                            warnAt: 2400
+                        stickers:
+                          perCard:
+                            status: "ok"
+                            disableAt: 70
+                            warnAt: 56
+                        reactions:
+                          perAction:
+                            status: "ok"
+                            disableAt: 900
+                            warnAt: 720
+                          uniquePerAction:
+                            status: "ok"
+                            disableAt: 17
+                            warnAt: 14
+                      pinned: false
+                      starred: false
+                      url: "https://trello.com/b/cB0uN8wu/2025-10-10-board-with-12-cards"
+                      prefs:
+                        permissionLevel: "private"
+                        hideVotes: false
+                        voting: "disabled"
+                        comments: "members"
+                        invitations: "members"
+                        selfJoin: true
+                        cardCovers: true
+                        showCompleteStatus: true
+                        cardCounts: false
+                        isTemplate: false
+                        cardAging: "regular"
+                        calendarFeedEnabled: false
+                        hiddenPluginBoardButtons: []
+                        switcherViews:
+                          - viewType: "Board"
+                            enabled: true
+                          - viewType: "Table"
+                            enabled: true
+                          - viewType: "Calendar"
+                            enabled: false
+                          - viewType: "Dashboard"
+                            enabled: false
+                          - viewType: "Timeline"
+                            enabled: false
+                          - viewType: "Map"
+                            enabled: false
+                        autoArchive: null
+                        background: "blue"
+                        backgroundColor: "#0079BF"
+                        backgroundDarkColor: null
+                        backgroundImage: null
+                        backgroundDarkImage: null
+                        backgroundImageScaled: null
+                        backgroundTile: false
+                        backgroundBrightness: "dark"
+                        sharedSourceUrl: null
+                        backgroundBottomColor: "#0079BF"
+                        backgroundTopColor: "#0079BF"
+                        canBePublic: true
+                        canBeEnterprise: true
+                        canBeOrg: true
+                        canBePrivate: true
+                        canInvite: true
+                      shortLink: "cB0uN8wu"
+                      subscribed: false
+                      labelNames:
+                        green: ""
+                        yellow: ""
+                        orange: ""
+                        red: ""
+                        purple: ""
+                        blue: ""
+                        sky: ""
+                        lime: ""
+                        pink: ""
+                        black: ""
+                        green_dark: ""
+                        yellow_dark: ""
+                        orange_dark: ""
+                        red_dark: ""
+                        purple_dark: ""
+                        blue_dark: ""
+                        sky_dark: ""
+                        lime_dark: ""
+                        pink_dark: ""
+                        black_dark: ""
+                        green_light: ""
+                        yellow_light: ""
+                        orange_light: ""
+                        red_light: ""
+                        purple_light: ""
+                        blue_light: ""
+                        sky_light: ""
+                        lime_light: ""
+                        pink_light: ""
+                        black_light: ""
+                      powerUps: []
+                      dateLastActivity: "2025-10-30T13:34:46.257Z"
+                      dateLastView: "2025-10-30T13:39:47.132Z"
+                      shortUrl: "https://trello.com/b/cB0uN8wu"
+                      idTags: []
+                      datePluginDisable: null
+                      creationMethod: "automatic"
+                      ixUpdate: "76"
+                      templateGallery: null
+                      enterpriseOwned: false
+                      idBoardSource: null
+                      premiumFeatures:
+                        - "additionalBoardBackgrounds"
+                        - "additionalStickers"
+                        - "customBoardBackgrounds"
+                        - "customEmoji"
+                        - "customStickers"
+                        - "plugins"
+                      idMemberCreator: "6752eb529b14a3446b75e69c"
+                      type: null
+                      memberships:
+                        - id: "68e8befbf2f641caa9b1e2a3"
+                          idMember: "6752eb529b14a3446b75e69c"
+                          memberType: "admin"
+                          unconfirmed: false
+                          deactivated: false
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
+  '/cards/{id}/actions?filter=createCard':
+    get:
+      description: Get the createCard action for a card
       parameters:
         - name: id
           in: path
@@ -296,26 +664,149 @@ paths:
           required: true
           schema:
             type: string
-        - name: filter
-          in: query
-          description: >-
-            A comma-separated list of action types to filter by. Common values include:
-            createCard, updateCard, commentCard, addAttachmentToCard, deleteAttachmentFromCard,
-            addMemberToCard, removeMemberFromCard, etc.
-          required: false
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+              examples:
+                sample:
+                  summary: Example response with createCard action
+                  value:
+                    id: "68e8befc8381b0efa25ce202"
+                    idMemberCreator: "6752eb529b14a3446b75e69c"
+                    data:
+                      card:
+                        id: "68e8befc8381b0efa25ce1eb"
+                        name: "Card 1"
+                        idShort: 1
+                        shortLink: "eNOnhfkI"
+                      list:
+                        id: "68e8befbf2f641caa9b1e2bf"
+                        name: "To Do"
+                      board:
+                        id: "68e8befbf2f641caa9b1e275"
+                        name: "2025-10-10 - Board with 12 cards"
+                        shortLink: "cB0uN8wu"
+                    appCreator:
+                      id: "6752ef5a692a1b4848af23b5"
+                    type: "createCard"
+                    date: "2025-10-10T08:08:28.546Z"
+                    limits: null
+                    memberCreator:
+                      id: "6752eb529b14a3446b75e69c"
+                      activityBlocked: false
+                      avatarHash: "66f803055e4e7070d6a1cc83cc06e6cd"
+                      avatarUrl: "https://trello-members.s3.amazonaws.com/6752eb529b14a3446b75e69c/66f803055e4e7070d6a1cc83cc06e6cd"
+                      fullName: "SaaS Connectors"
+                      idMemberReferrer: null
+                      initials: "SC"
+                      nonPublic: {}
+                      nonPublicAvailable: true
+                      username: "examplesaas1"
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
+  '/cards/{id}/actions?filter=commentCard':
+    get:
+      description: Get the createCard action for a card
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the Card
+          required: true
           schema:
             type: string
-            example: "createCard"
-        - name: fields
-          in: query
-          description: >-
-            All or a comma-separated list of action fields to include in the response.
-            Valid values: id, idMemberCreator, data, type, date, etc.
-          required: false
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+              examples:
+                sample:
+                  summary: Example response with comment data
+                  value:
+                    - id: "6903676ae620c67577973190"
+                      idMemberCreator: "6752eb529b14a3446b75e69c"
+                      data:
+                        idCard: "68e8befc8381b0efa25ce1eb"
+                        text: "An awesome comment! tt"
+                        textData:
+                          emoji: {}
+                        card:
+                          id: "68e8befc8381b0efa25ce1eb"
+                          name: "Card12-8c90c00e-355e-46fd-bfcb-895a36feb0dcasdf"
+                          idShort: 1
+                          shortLink: "eNOnhfkI"
+                        board:
+                          id: "68e8befbf2f641caa9b1e275"
+                          name: "2025-10-10 - Board with 12 cards"
+                          shortLink: "cB0uN8wu"
+                        list:
+                          id: "68e8befbf2f641caa9b1e2bf"
+                          name: "To Do"
+                        dateLastEdited: "2025-10-30T13:34:46.238Z"
+                      appCreator: null
+                      type: "commentCard"
+                      date: "2025-10-30T13:26:02.902Z"
+                      limits:
+                        reactions:
+                          perAction:
+                            status: "ok"
+                            disableAt: 900
+                            warnAt: 720
+                          uniquePerAction:
+                            status: "ok"
+                            disableAt: 17
+                            warnAt: 14
+                      memberCreator:
+                        id: "6752eb529b14a3446b75e69c"
+                        activityBlocked: false
+                        avatarHash: "66f803055e4e7070d6a1cc83cc06e6cd"
+                        avatarUrl: "https://trello-members.s3.amazonaws.com/6752eb529b14a3446b75e69c/66f803055e4e7070d6a1cc83cc06e6cd"
+                        fullName: "SaaS Connectors"
+                        idMemberReferrer: null
+                        initials: "SC"
+                        nonPublic: {}
+                        nonPublicAvailable: true
+                        username: "examplesaas1"
+
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
+  '/cards/{id}/actions?filter=updateCard':
+    get:
+      description: >-
+        Get the update actions (activity/history) for a card. This endpoint specifically
+        filters for updateCard actions, which represent changes made to the card such as
+        due date modifications, name changes, description updates, etc.
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the Card
+          required: true
           schema:
             type: string
-            default: all
-            example: "idMemberCreator"
+        - name: limit
+          in: query
+          description: The maximum number of actions to return (1-1000)
+          required: false
       responses:
         '200':
           description: Success
@@ -327,10 +818,31 @@ paths:
                   $ref: '#/components/schemas/Action'
               examples:
                 sample:
-                  summary: Example response with createCard action
+                  summary: Example response with card update actions
                   value:
-                    - id: "688725dd74f73c42539da8a7"
+                    - id: "690b6de2926d0e89fbb7d450"
                       idMemberCreator: "6752eb529b14a3446b75e69c"
+                      data:
+                        old:
+                          due: null
+                        card:
+                          due: "2025-11-10T12:00:00.000Z"
+                          id: "68e8befc8381b0efa25ce1eb"
+                          name: "Card1-59551f86-4abb-4f27-a93a-c3be5f63cc82"
+                          idShort: 1
+                          shortLink: "eNOnhfkI"
+                        board:
+                          id: "68e8befbf2f641caa9b1e275"
+                          name: "2025-10-10 - Board with 12 cards"
+                          shortLink: "cB0uN8wu"
+                        list:
+                          id: "68e8befbf2f641caa9b1e2bf"
+                          name: "To Do"
+                      appCreator:
+                        id: "6752ef5a692a1b4848af23b5"
+                      type: "updateCard"
+                      date: "2025-11-05T15:31:46.057Z"
+                      limits: null
                       memberCreator:
                         id: "6752eb529b14a3446b75e69c"
                         activityBlocked: false
@@ -351,30 +863,20 @@ paths:
                 Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
               schema:
                 type: string
-  '/cards/{id}/attachments':
+
+
+  '/boards/{id}/labels':
     get:
-      description: List the attachments on a card
+      description: >-
+        Get all of the Labels on a Board. Labels are used to categorize and organize cards.
+        Each label has a name (which can be empty), a color, and tracks usage count.
       parameters:
         - name: id
           in: path
-          description: The ID of the Card
+          description: The ID of the Board
           required: true
           schema:
             type: string
-        - name: fields
-          in: query
-          description: All or a comma-separated list of attachment fields
-          required: false
-          schema:
-            type: string
-            default: all
-        - name: filter
-          in: query
-          description: Use cover to restrict to just the cover attachment
-          required: false
-          schema:
-            type: string
-            default: "false"
       responses:
         '200':
           description: Success
@@ -383,22 +885,16 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Attachment'
+                  $ref: '#/components/schemas/Label'
               examples:
                 sample:
-                  summary: Example response
+                  summary: Example response with board labels
                   value:
-                    - id: "5abbe4b7ddc1b351ef961414"
-                      bytes: "<string>"
-                      date: "2018-10-17T19:10:14.808Z"
-                      edgeColor: "yellow"
-                      idMember: "5abbe4b7ddc1b351ef961414"
-                      isUpload: false
-                      mimeType: ""
-                      name: "Deprecation Extension Notice"
-                      previews: []
-                      url: "https://admin.typeform.com/form/RzExEM/share#/link"
-                      pos: 1638
+                    - id: "68e8befbf2f641caa9b1e2b8"
+                      idBoard: "68e8befbf2f641caa9b1e275"
+                      name: ""
+                      color: "green"
+                      uses: 1
         '429':
           description: Rate limit exceeded.
           headers:
@@ -408,6 +904,7 @@ paths:
                 Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
               schema:
                 type: string
+
   '/cards/{idCard}/attachments/{idAttachment}/download/{fileName}':
     get:
       description: >-
@@ -467,6 +964,49 @@ paths:
           description: Unauthorized - Invalid or missing API key/token
         '404':
           description: Card, attachment, or file not found
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: |-
+                An HTTP-date string (RFC 7231) indicating when to retry the request.
+                Example: 'Wed, 21 Oct 2015 07:28:00 GMT'
+              schema:
+                type: string
+  '/boards/{id}/lists':
+    get:
+      description: Get the lists on a board
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the Board
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/List'
+              examples:
+                sample:
+                  summary: Example response
+                  value:
+                    - id: "68e8befbf2f641caa9b1e2bf"
+                      name: "To Do"
+                      closed: false
+                      color: null
+                      idBoard: "68e8befbf2f641caa9b1e275"
+                      pos: 140737488355328
+                      subscribed: false
+                      softLimit: null
+                      type: null
+                      datasource:
+                        filter: false
         '429':
           description: Rate limit exceeded.
           headers:
