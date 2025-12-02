@@ -1,0 +1,21 @@
+{% include "devrev-snapin-template.plain" %}
+
+#  The Trello Snap-In
+
+***Definitions:***
+
+- :Snap-In: Interacts with Trello API (:API:).
+
+## Generate 'external_domain_metadata.json'
+
+{% include "templates/external_domain_metadata_boilerplate.plain" %}
+
+***Functional Requirements:***
+
+- {% include "templates/edm_record_type_template.plain", record_type: "users", product_requirement_file: "product_requirements/users-extraction.md" %}
+
+- {% include "templates/edm_record_type_template.plain", record_type: "labels", product_requirement_file: "product_requirements/labels-extraction.md" %}
+
+- {% include "templates/edm_record_type_template.plain", record_type: "cards", product_requirement_file: "product_requirements/cards-extraction.md" %}
+
+- {% include "templates/edm_record_type_template.plain", record_type: "comments", product_requirement_file: "product_requirements/comments-extraction.md" %}
